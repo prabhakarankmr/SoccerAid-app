@@ -29,6 +29,12 @@ export default function Otp() {
       await setTokens(result);
       router.replace(result.isNewUser ? '/(auth)/profile-setup' : '/(tabs)');
     },
+    onError: (error) => {
+      // Firebase confirm() can fail here too, but so can the backend /auth/firebase/verify
+      // call that follows it — the on-screen message can't tell them apart, so log the
+      // real error (ApiError has .code/.message from the backend's envelope if that's it).
+      console.error('confirmOtp/verify failed:', error);
+    },
   });
 
   return (
@@ -49,7 +55,10 @@ export default function Otp() {
         />
 
         {mutation.isError ? (
-          <Text className="mt-2 text-sm text-red-700">Incorrect or expired code — try again</Text>
+          <Text className="mt-2 text-sm text-red-700">
+            Incorrect or expired code — try again
+            {__DEV__ && mutation.error instanceof Error ? ` (${mutation.error.message})` : ''}
+          </Text>
         ) : null}
 
         <Pressable

@@ -1,13 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { sendOtp } from '../../src/api/firebasePhoneAuth';
 
 const logo = require('../../assets/logo.png');
 
 const INDIA_LOCAL_NUMBER = /^[6-9]\d{9}$/;
+
+// Must match RECAPTCHA_CONTAINER_ID in src/api/firebasePhoneAuth.web.ts — web-only phone
+// auth needs a real DOM node to bind its reCAPTCHA verifier to (FRONTEND_INSTRUCTIONS.md
+// §11.1). Duplicated instead of imported: Metro resolves `firebasePhoneAuth` to the right
+// platform file at bundle time, but `tsc` always type-checks the base (native) one, which
+// doesn't export this constant.
+const RECAPTCHA_CONTAINER_ID = 'recaptcha-container';
 
 export default function Login() {
   const [digits, setDigits] = useState('');
@@ -22,13 +29,24 @@ export default function Login() {
     onSuccess: (phone) => {
       router.push({ pathname: '/(auth)/otp', params: { phone } });
     },
+    onError: (error) => {
+      // The on-screen message is deliberately generic for users; the real Firebase error
+      // (invalid-api-key, operation-not-allowed, unauthorized-domain, ...) goes to the
+      // console so it's actually diagnosable instead of guessed at.
+      console.error('sendOtp failed:', error);
+    },
   });
 
   return (
     <View className="flex-1 items-center justify-center bg-emerald-50 px-6">
+      {Platform.OS === 'web' ? <View nativeID={RECAPTCHA_CONTAINER_ID} /> : null}
+
+      {/* Explicit style, not h-32 w-32: NativeWind didn't apply sizing classes to this
+          Image, so it fell back to the asset's intrinsic 900x896 and filled the screen. */}
       <Image
         source={logo}
-        className="mb-4 h-32 w-32"
+        className="mb-4"
+        style={{ width: 128, height: 128 }}
         resizeMode="contain"
         accessible={false}
         importantForAccessibility="no"
@@ -61,6 +79,7 @@ export default function Login() {
         {mutation.isError ? (
           <Text className="mt-2 text-sm text-red-700">
             Could not send the OTP — check the number and try again
+            {__DEV__ && mutation.error instanceof Error ? ` (${mutation.error.message})` : ''}
           </Text>
         ) : null}
 
