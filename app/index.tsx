@@ -1,14 +1,25 @@
-import { Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+
+import { useAuthStore } from '../src/stores/authStore';
 
 export default function Index() {
-  // Solid fallback — the real screen gradient (§4) needs expo-linear-gradient,
-  // NativeWind has no RN equivalent for bg-gradient-to-* utilities.
-  return (
-    <View className="flex-1 items-center justify-center bg-emerald-50 px-6">
-      <Text className="text-3xl font-bold text-emerald-800">SoccerAid</Text>
-      <Text className="mt-2 text-center text-emerald-600">
-        Project scaffolded — screens land per FRONTEND_INSTRUCTIONS.md §5.
-      </Text>
-    </View>
-  );
+  const hydrated = useAuthStore((state) => state.hydrated);
+  const refreshToken = useAuthStore((state) => state.refreshToken);
+  const hydrate = useAuthStore((state) => state.hydrate);
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+
+  if (!hydrated) {
+    return (
+      <View className="flex-1 items-center justify-center bg-emerald-50">
+        <ActivityIndicator color="#059669" />
+      </View>
+    );
+  }
+
+  return <Redirect href={refreshToken ? '/(tabs)' : '/(auth)/login'} />;
 }

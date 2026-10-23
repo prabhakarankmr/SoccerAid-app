@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1036744511905",
+    "project_id": "socceraid-cf0af",
+    "storage_bucket": "socceraid-cf0af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1036744511905:android:8ef5cbd3fe3b0839087be0",
+        "android_client_info": {
+          "package_name": "com.socceraid.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZ6Yc0Ej0vQncCGuqPt-NTLj7AyX9-T7A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

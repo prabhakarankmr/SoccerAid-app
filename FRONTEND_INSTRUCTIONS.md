@@ -48,27 +48,28 @@ Allowed client-side logic: UI state (which modal is open, selected tab), input v
 
 ## 2. Tech Stack (pin exact versions at init)
 
-| Concern            | Choice                                                                                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework          | **Expo** (latest SDK at init) + React Native (version bundled with that SDK), **TypeScript strict**                                                      |
-| Routing            | **Expo Router** (file-based, typed routes)                                                                                                               |
-| Styling            | **NativeWind** (latest stable — v5 with Tailwind CSS v4 if stable at init, otherwise v4 + Tailwind 3.4) — `className` everywhere                         |
-| Server state       | **TanStack Query v5**                                                                                                                                    |
-| Local UI state     | **Zustand** (small stores only — no server data copied into it)                                                                                          |
-| API client         | Generated from backend OpenAPI with **orval** (or `openapi-typescript` + `openapi-fetch`) — never hand-write request types                               |
-| Realtime           | `socket.io-client` (`transports: ['websocket']`)                                                                                                         |
-| Pitch drawing      | `react-native-svg` (markings)                                                                                                                            |
-| Gestures/animation | `react-native-gesture-handler` + `react-native-reanimated` (drag players in setup)                                                                       |
-| Orientation        | `expo-screen-orientation` (true landscape for the pitch)                                                                                                 |
-| Secure storage     | `expo-secure-store` (tokens)                                                                                                                             |
-| Fast storage       | `react-native-mmkv` (offline event queue, query persistence)                                                                                             |
-| Lists              | `@shopify/flash-list`                                                                                                                                    |
-| Icons              | `lucide-react-native` (same icon set as reference: Target, User, Goal, Crosshair, Circle, Trophy, Timer, Users, RotateCcw, Play, Pause, ArrowLeft, Plus) |
-| Forms              | `react-hook-form` + `zod` (UX validation only)                                                                                                           |
-| Toasts             | `sonner-native` or `burnt`                                                                                                                               |
-| Push               | `expo-notifications`                                                                                                                                     |
-| Tests              | Jest + `@testing-library/react-native`; Maestro for E2E flows                                                                                            |
-| Builds             | EAS Build / EAS Update                                                                                                                                   |
+| Concern            | Choice                                                                                                                                                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework          | **Expo** (latest SDK at init) + React Native (version bundled with that SDK), **TypeScript strict**. Ships mobile-only (iOS/Android); `web` platform + `react-dom`/`react-native-web` are installed for dev-only browser preview (`expo start` → `w`), not a shipped target — see §11.2 flag |
+| Routing            | **Expo Router** (file-based, typed routes)                                                                                                                                                                                                                                                   |
+| Phone auth         | `@react-native-firebase/app` + `@react-native-firebase/auth` (v27, modular API — `getAuth()`, `signInWithPhoneNumber()`, not the old `auth()` namespace). India-only OTP login; backend only verifies the resulting ID token (BACKEND_INSTRUCTIONS.md §9.5)                                  |
+| Styling            | **NativeWind** (latest stable — v5 with Tailwind CSS v4 if stable at init, otherwise v4 + Tailwind 3.4) — `className` everywhere                                                                                                                                                             |
+| Server state       | **TanStack Query v5**                                                                                                                                                                                                                                                                        |
+| Local UI state     | **Zustand** (small stores only — no server data copied into it)                                                                                                                                                                                                                              |
+| API client         | Generated from backend OpenAPI with **orval** (or `openapi-typescript` + `openapi-fetch`) — never hand-write request types                                                                                                                                                                   |
+| Realtime           | `socket.io-client` (`transports: ['websocket']`)                                                                                                                                                                                                                                             |
+| Pitch drawing      | `react-native-svg` (markings)                                                                                                                                                                                                                                                                |
+| Gestures/animation | `react-native-gesture-handler` + `react-native-reanimated` (drag players in setup)                                                                                                                                                                                                           |
+| Orientation        | `expo-screen-orientation` (true landscape for the pitch)                                                                                                                                                                                                                                     |
+| Secure storage     | `expo-secure-store` (tokens)                                                                                                                                                                                                                                                                 |
+| Fast storage       | `react-native-mmkv` (offline event queue, query persistence)                                                                                                                                                                                                                                 |
+| Lists              | `@shopify/flash-list`                                                                                                                                                                                                                                                                        |
+| Icons              | `lucide-react-native` (same icon set as reference: Target, User, Goal, Crosshair, Circle, Trophy, Timer, Users, RotateCcw, Play, Pause, ArrowLeft, Plus)                                                                                                                                     |
+| Forms              | `react-hook-form` + `zod` (UX validation only)                                                                                                                                                                                                                                               |
+| Toasts             | `sonner-native` or `burnt`                                                                                                                                                                                                                                                                   |
+| Push               | `expo-notifications`                                                                                                                                                                                                                                                                         |
+| Tests              | Jest + `@testing-library/react-native`; Maestro for E2E flows                                                                                                                                                                                                                                |
+| Builds             | EAS Build / EAS Update                                                                                                                                                                                                                                                                       |
 
 Install with `npx expo install <pkg>` (keeps versions SDK-compatible) and commit the lockfile.
 
@@ -79,9 +80,10 @@ Install with `npx expo install <pkg>` (keeps versions SDK-compatible) and commit
 ```
 app/                              # Expo Router routes ONLY (thin: compose screens)
   _layout.tsx
-  (auth)/login.tsx  (auth)/otp.tsx
+  (auth)/_layout.tsx
+  (auth)/login.tsx  (auth)/otp.tsx  (auth)/profile-setup.tsx   # §5.0
   (tabs)/_layout.tsx
-  (tabs)/index.tsx                # Dashboard / home feed (live + recent matches)
+  (tabs)/index.tsx                # Dashboard / home feed (live + recent matches) — placeholder for now (§5.0)
   (tabs)/tournaments.tsx
   (tabs)/players.tsx
   (tabs)/profile.tsx
@@ -95,16 +97,22 @@ app/                              # Expo Router routes ONLY (thin: compose scree
   player/[id].tsx                 # Player stats (Overview / Tournaments / Matches)
   team/[id].tsx
 src/
-  api/                            # generated client + axios/fetch instance + interceptors
-  hooks/                          # useMatchState, useSendEvent, useStandings… (TanStack Query)
+  api/
+    client.ts                    # fetch wrapper: base URL, bearer header, 401 → refresh-once → retry (§6.1)
+    firebasePhoneAuth.ts         # sendOtp/confirmOtp — wraps @react-native-firebase/auth (§5.0)
+    queryKeys.ts                 # key factory (meKeys.me …) — generated client + interceptors still TODO
+  hooks/
+    useMe.ts                     # GET /me (TanStack Query) — useMatchState, useSendEvent, useStandings… TODO
   realtime/                       # socket singleton, useMatchLive
   offline/                        # MMKV event queue + flush worker
   components/
-    ui/                           # Button, Card, Dialog(BottomSheet), Select, Input, Badge, Tabs
+    ui/                           # Button, Card, Dialog(BottomSheet), Select, Input, Badge, Tabs — TODO, §5.0 screens inline their own primitives for now
     pitch/                        # FootballPitch, PlayerToken, EmptySlot, PitchMarkings
     match/                        # Scoreboard, MatchControls, LiveStatsBar, ActionBar, EventsTimeline, modals/
     tournament/                   # StandingsTable, FixtureCard
-  stores/                         # zustand: uiStore, scorerSessionStore
+  stores/
+    authStore.ts                  # zustand: accessToken/refreshToken only (§5.0) — uiStore, scorerSessionStore TODO
+    secureStorage.ts               # SecureStore on native, localStorage on web (§11.1) — route token storage through this, not expo-secure-store directly
   theme/                          # tokens.ts (mirrors tailwind config)
   config/env.ts
   utils/format.ts                 # formatClock, ordinal dates
@@ -118,30 +126,56 @@ Rules: route files ≤ 80 lines; components ≤ 250 lines; one component per fil
 
 The reference uses shadcn tokens + an **emerald / blue** team palette on a soft green gradient. Reproduce exactly in `tailwind.config` (NativeWind):
 
-| Token             | Value / Tailwind class                                                                                                                                | Used for                      |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| Screen background | `bg-gradient` emerald: `from-green-50 to-emerald-100` (use `expo-linear-gradient` `#f0fdf4 → #d1fae5`)                                                | every match/tournament screen |
-| Card              | `bg-white/80 border border-emerald-200 rounded-lg`                                                                                                    | all cards                     |
-| Heading           | `text-emerald-800 font-bold`                                                                                                                          | titles, CardTitle             |
-| Label             | `text-emerald-700`                                                                                                                                    | form labels                   |
-| **Home / Team A** | `emerald-600` fill, `emerald-700` border, `emerald-100` name chip, `emerald-800` chip text                                                            | players, score, badges        |
-| **Away / Team B** | `blue-600` fill, `blue-700` border, `blue-100` chip, `blue-800` text                                                                                  |                               |
-| Goalkeeper        | `orange-500` fill, `orange-600` border, `Target` icon                                                                                                 | GK token                      |
-| Outfield icon     | `User` icon, white                                                                                                                                    | player token                  |
-| Ball possession   | `ring-2 ring-yellow-400` on token + `bg-yellow-400 text-black rounded-full` pill "⚽ Ball with: {name}"                                               |                               |
-| Pitch             | `bg-green-400`, stripe gradient `green-400 → green-500 → green-400`, `border-4 border-white rounded-lg`, white markings                               |                               |
-| Empty slot        | `w-8 h-8 rounded-full border-2 border-dashed`, Team A `border-emerald-400 bg-emerald-100`, Team B `border-blue-400 bg-blue-100`, `Plus` icon gray-600 | setup                         |
-| Primary button    | `bg-emerald-600` (pressed `emerald-700`), white text                                                                                                  |                               |
-| Outline button    | `border-emerald-300`                                                                                                                                  | Back buttons                  |
-| Destructive       | `bg-red-50 border-red-300 text-red-700`                                                                                                               | End Match                     |
-| Radius            | 8 px (`--radius: 0.5rem`)                                                                                                                             |                               |
-| Dark mode         | reference has shadcn dark tokens; support later via NativeWind `dark:`                                                                                |                               |
+| Token             | Value / Tailwind class                                                                                                                                                                                                                                                                                                                                                                                                       | Used for                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Screen background | `bg-gradient` emerald: `from-green-50 to-emerald-100` (use `expo-linear-gradient` `#f0fdf4 → #d1fae5`)                                                                                                                                                                                                                                                                                                                       | every match/tournament screen |
+| Card              | `bg-white/80 border border-emerald-200 rounded-lg`                                                                                                                                                                                                                                                                                                                                                                           | all cards                     |
+| Heading           | `text-emerald-800 font-bold`                                                                                                                                                                                                                                                                                                                                                                                                 | titles, CardTitle             |
+| Label             | `text-emerald-700`                                                                                                                                                                                                                                                                                                                                                                                                           | form labels                   |
+| **Home / Team A** | `emerald-600` fill, `emerald-700` border, `emerald-100` name chip, `emerald-800` chip text                                                                                                                                                                                                                                                                                                                                   | players, score, badges        |
+| **Away / Team B** | `blue-600` fill, `blue-700` border, `blue-100` chip, `blue-800` text                                                                                                                                                                                                                                                                                                                                                         |                               |
+| Goalkeeper        | `orange-500` fill, `orange-600` border, `Target` icon                                                                                                                                                                                                                                                                                                                                                                        | GK token                      |
+| Outfield icon     | `User` icon, white                                                                                                                                                                                                                                                                                                                                                                                                           | player token                  |
+| Ball possession   | `ring-2 ring-yellow-400` on token + `bg-yellow-400 text-black rounded-full` pill "⚽ Ball with: {name}"                                                                                                                                                                                                                                                                                                                      |                               |
+| Pitch             | `bg-green-400`, stripe gradient `green-400 → green-500 → green-400`, `border-4 border-white rounded-lg`, white markings                                                                                                                                                                                                                                                                                                      |                               |
+| Empty slot        | `w-8 h-8 rounded-full border-2 border-dashed`, Team A `border-emerald-400 bg-emerald-100`, Team B `border-blue-400 bg-blue-100`, `Plus` icon gray-600                                                                                                                                                                                                                                                                        | setup                         |
+| Primary button    | `bg-emerald-600` (pressed `emerald-700`), white text                                                                                                                                                                                                                                                                                                                                                                         |                               |
+| Outline button    | `border-emerald-300`                                                                                                                                                                                                                                                                                                                                                                                                         | Back buttons                  |
+| Destructive       | `bg-red-50 border-red-300 text-red-700`                                                                                                                                                                                                                                                                                                                                                                                      | End Match                     |
+| Radius            | 8 px (`--radius: 0.5rem`)                                                                                                                                                                                                                                                                                                                                                                                                    |                               |
+| Dark mode         | reference has shadcn dark tokens; support later via NativeWind `dark:`. `tailwind.config.js` sets `darkMode: 'class'` — **required**, not stylistic: on web, NativeWind's runtime throws ("Cannot manually set color scheme, as dark mode is type 'media'") if left at Tailwind's default `'media'`, because React Navigation calls it programmatically on mount regardless of whether `dark:` classes are used anywhere yet |                               |
 
 Typography: system font; score `text-3xl md:text-4xl font-bold`; timer `text-emerald-600` with `Timer` icon; timeline minute `font-mono font-bold text-emerald-600`.
 
 ---
 
 ## 5. Screens (must match the reference UI)
+
+### 5.0 Authentication & Onboarding (no reference equivalent — new for this app)
+
+Signup is **India-only**, phone + OTP. OTP send/verify happens entirely on-device via Firebase
+Phone Auth (`src/api/firebasePhoneAuth.ts`); the app never talks to the backend's OTP endpoints
+because there aren't any (see BACKEND_INSTRUCTIONS.md §9.5) — it posts the resulting Firebase ID
+token to `POST /auth/firebase/verify` and gets back the app's own access/refresh token pair.
+
+- **`(auth)/login.tsx`** — shows the app logo (`assets/logo.png`, decorative — `accessible={false}`,
+  the heading text carries the actual meaning for screen readers) above the form. Single input, static `+91` prefix, 10 digits, validated client-side
+  against `^[6-9]\d{9}$` (UX only — the real constraint is enforced server-side on the verified
+  Firebase `phone_number` claim). Calls `sendOtp(phone)`, then pushes to `otp` with `phone` as a
+  route param.
+- **`(auth)/otp.tsx`** — 6-digit input. Calls `confirmOtp(code)` (Firebase) to get an ID token,
+  then `POST /auth/firebase/verify`. On success, stores the token pair (`useAuthStore.setTokens`)
+  and routes: `isNewUser` → `profile-setup`, else → `(tabs)`.
+- **`(auth)/profile-setup.tsx`** — display name (required) + preferred position (optional).
+  `PATCH /me`; on success seeds the `me` query cache directly (`setQueryData`, no refetch) and
+  routes to `(tabs)`.
+- **`app/index.tsx`** — the auth gate. Hydrates `authStore` from SecureStore, then `<Redirect>`s to
+  `(tabs)` if a refresh token exists, else `(auth)/login`. Every other screen assumes this gate
+  already ran.
+
+Known shortcut: these three screens use raw `TextInput`/`Pressable` directly instead of the
+`ui/Button` / `ui/Input` component library (§7, still TODO) — revisit when that library exists
+instead of copying the inline pattern into new screens.
 
 ### 5.1 Match Setup — `match/new.tsx` (ref: `match-setup.tsx` step `teams`)
 
@@ -213,6 +247,12 @@ Live matches (realtime badges), recent matches (ref: `match-history-list.tsx`, "
 - Generated client from `${API_URL}/api/docs-json` via `npm run api:generate`; commit generated code; regenerate whenever backend contract changes.
 - Interceptors: attach `Authorization: Bearer`, `X-Request-Id`, `Idempotency-Key` on POST/PUT; on 401 refresh once then retry; map error envelope `{ error: { code, message } }` to a typed `ApiError`.
 - Show user messages by `error.code` (map in `src/api/errorMessages.ts`), never raw server text.
+
+**Current state (§5.0):** `src/api/client.ts` implements the base-URL/bearer/401-refresh-retry/`ApiError`
+pieces by hand with plain `fetch`, since there's no generated client yet (nothing to generate from
+until a non-auth endpoint exists). No `X-Request-Id`/`Idempotency-Key` headers yet — add when the
+first idempotent write (match events) lands. `errorMessages.ts` mapping is also TODO; screens show
+a generic retry message for now.
 
 ### 6.2 TanStack Query
 
@@ -321,11 +361,38 @@ The app only knows which modal to show and which event to send; all consequences
 - EAS build profiles: `development` (dev client), `preview` (staging API), `production`.
 - OTA updates via EAS Update on channel per profile; native dependency changes require a new build.
 - Scripts: `api:generate`, `lint`, `typecheck`, `test`, `e2e`, `check-instructions`.
+- Branding: `assets/logo-source.png` is the master logo (transparent, 1254×1254). `python scripts/generate-app-icons.py` (needs Pillow — `pip install pillow`) derives `icon.png` (flattened on white, store icons can't have alpha), `favicon.png`, the Android adaptive-icon trio (`android-icon-{foreground,background,monochrome}.png`, foreground/monochrome scaled to the ~62% safe zone so launcher masks don't clip them), and `logo.png` (transparent, ~900px, for in-app use — e.g. `(auth)/login.tsx`). Re-run it if `logo-source.png` changes; don't hand-edit the derived files.
+- `app.json` `platforms` includes `web` (plus `react-dom`/`react-native-web`, §2) so `npx expo start` → `w` works for quickly checking layout/navigation in a browser. This is a dev convenience only — EAS builds and the shipped product are mobile-only (iOS/Android).
+
+### 11.1 🚩 Flag: Phone OTP login does not work on web
+
+`@react-native-firebase/auth`'s web shim (`dist/module/web/RNFBAuthModule.js`) rejects
+`signInWithPhoneNumber()` unconditionally with `unsupported` — this isn't a missing-config error,
+the library simply never implemented it for web (phone auth on web needs a visible/invisible
+reCAPTCHA widget via firebase-js-sdk directly, a different integration RNFB doesn't shim). Practical
+effect: `(auth)/login.tsx` → "Send OTP" always fails on web with the generic error message. Every
+other screen (including `(auth)/profile-setup.tsx` and `(tabs)/index.tsx`) works fine on web once
+you have a token — e.g. by signing in on a device first and sharing a session, or by stubbing
+`sendOtp`/`confirmOtp` locally. Don't spend time debugging this as a bug; it's a hard library
+limitation. Remove this flag only if phone auth is ever reimplemented for web via firebase-js-sdk's
+own reCAPTCHA flow.
+
+Related: `expo-secure-store` also has no web implementation (`ExpoSecureStore.web.ts` is a literal
+`export default {}` stub — calling it throws `getValueWithKeyAsync is not a function`). Worked
+around in `src/stores/secureStorage.ts`, which every token read/write goes through instead of
+calling `expo-secure-store` directly: native uses SecureStore as normal, web falls back to
+`localStorage` (fine for dev-preview session persistence; web was never going to have real secure
+storage anyway). Route any new secrets-at-rest through that wrapper, not `expo-secure-store` directly.
 
 ---
 
 ## Changelog
 
-| Date       | Author  | Change                                                                                                                             |
-| ---------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-22 | initial | First version — thin-client rules, reference UI spec (setup, lineup, live, summary, tournament, player stats), data/realtime layer |
+| Date       | Author              | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-10-22 | initial             | First version — thin-client rules, reference UI spec (setup, lineup, live, summary, tournament, player stats), data/realtime layer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 2026-10-23 | auth-firebase       | Implemented signup/login (§5.0, new): India-only phone + OTP via Firebase Phone Auth (`@react-native-firebase/app`/`auth` v27, §2), `(auth)/login.tsx` → `(auth)/otp.tsx` → backend `/auth/firebase/verify`, branching to `(auth)/profile-setup.tsx` for new users or straight to `(tabs)` for existing ones. Added `app/index.tsx` as the auth gate (hydrates `authStore` from SecureStore, redirects). New: `src/stores/authStore.ts` (tokens only, §2 Zustand rule), `src/api/client.ts` (fetch wrapper, §6.1), `src/api/firebasePhoneAuth.ts`, `src/api/queryKeys.ts`, `src/hooks/useMe.ts`. `(tabs)/index.tsx` added as a placeholder landing screen (real dashboard, §5.7, still TODO). Set `app.json` `android.package`/`ios.bundleIdentifier` to `com.socceraid.app` and wired the `@react-native-firebase/*` config plugins + `googleServicesFile` paths — flagged (§11.1) since neither native config file exists yet. Known shortcut (§5.0): these three screens inline raw `TextInput`/`Pressable` instead of the `ui/` component library (§7), which doesn't exist yet. |
+| 2026-10-23 | web-dev-preview     | `google-services.json`/`GoogleService-Info.plist` added to the repo root — the former §11.1 flag is resolved and removed. Re-enabled `web` in `app.json` `platforms` + installed `react-dom`/`react-native-web` (§2) so `expo start` → `w` works for a quick browser preview during dev; not a shipped target. New flag (§11.1): confirmed in `@react-native-firebase/auth`'s source that its web shim unconditionally rejects `signInWithPhoneNumber()` — phone OTP login cannot work on web, by hard library limitation, not a config gap.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-10-23 | darkmode-fix        | Set `darkMode: 'class'` in `tailwind.config.js` (§4) — without it, loading the app on web crashed immediately with "Cannot manually set color scheme, as dark mode is type 'media'", because React Navigation calls NativeWind's color-scheme setter on mount regardless of whether the app uses `dark:` classes yet. Verified fix compiles into the web CSS output (`--css-interop-darkMode:class dark`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-10-23 | branding            | Added the real app logo (`assets/logo-source.png`) and `scripts/generate-app-icons.py` (§11) to derive `icon.png`, `favicon.png`, the Android adaptive-icon trio, and an in-app `logo.png` from it. Wired into `app.json` (`icon`, `web.favicon`, `android.adaptiveIcon.*`); adaptive-icon `backgroundColor` changed from the Expo-template default `#E6F4FE` to `#FFFFFF` so the green/black glossy mark reads cleanly. `(auth)/login.tsx` now shows the logo above the form (§5.0).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-10-23 | securestore-web-fix | Fixed a web-only crash on app launch ("`ExpoSecureStore.default.getValueWithKeyAsync is not a function`") — `expo-secure-store` has no web implementation at all, not even a partial one. Added `src/stores/secureStorage.ts` (§3, §11.1) as the one place that talks to platform storage; `authStore.ts` now goes through it instead of calling `expo-secure-store` directly.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
