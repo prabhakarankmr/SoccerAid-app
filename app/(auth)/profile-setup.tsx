@@ -3,19 +3,25 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
-import { apiClient } from '../../src/api/client';
+import { ApiError, apiClient } from '../../src/api/client';
 import { meKeys } from '../../src/api/queryKeys';
 import { Me } from '../../src/hooks/useMe';
+
+const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 export default function ProfileSetup() {
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
   const [preferredPosition, setPreferredPosition] = useState('');
 
   const mutation = useMutation({
     mutationFn: () =>
       apiClient.patch<Me>('/me', {
         displayName: displayName.trim(),
+        username,
+        bio: bio.trim() || undefined,
         preferredPosition: preferredPosition.trim() || undefined,
       }),
     onSuccess: (me) => {
@@ -24,13 +30,29 @@ export default function ProfileSetup() {
     },
   });
 
-  const isValid = displayName.trim().length > 0;
+  const isUsernameValid = USERNAME_PATTERN.test(username);
+  const isValid = displayName.trim().length > 0 && isUsernameValid;
+  const usernameTaken =
+    mutation.error instanceof ApiError && mutation.error.code === 'USERNAME_TAKEN';
 
   return (
     <View className="flex-1 items-center justify-center bg-emerald-50 px-6">
       <View className="w-full max-w-sm rounded-lg border border-emerald-200 bg-white/80 p-6">
         <Text className="text-2xl font-bold text-emerald-800">Set up your profile</Text>
         <Text className="mt-1 text-emerald-600">This is how other players will see you.</Text>
+
+        {/* Letter-avatar fallback — a real photo comes later via file storage; this isn't a
+            stub, it's the permanent empty/no-photo state most apps show regardless. */}
+        <View className="mt-4 items-center">
+          <View
+            className="items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-100"
+            style={{ width: 88, height: 88 }}
+          >
+            <Text className="text-3xl font-bold text-emerald-700">
+              {displayName.trim() ? displayName.trim().charAt(0).toUpperCase() : '?'}
+            </Text>
+          </View>
+        </View>
 
         <Text className="mt-6 text-sm text-emerald-700">Display name</Text>
         <TextInput
@@ -40,6 +62,49 @@ export default function ProfileSetup() {
           accessibilityLabel="Display name"
           accessibilityHint="The name other players will see"
           className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+        />
+
+        <Text className="mt-4 text-sm text-emerald-700">Username</Text>
+        <View className="mt-1 flex-row items-center rounded-lg border border-emerald-300 bg-white px-3">
+          <Text className="text-base text-emerald-700">@</Text>
+          <TextInput
+            value={username}
+            onChangeText={(text) =>
+              setUsername(
+                text
+                  .toLowerCase()
+                  .replace(/[^a-z0-9_]/g, '')
+                  .slice(0, 20),
+              )
+            }
+            placeholder="yourname"
+            autoCapitalize="none"
+            accessibilityLabel="Username"
+            accessibilityHint="3 to 20 characters: lowercase letters, numbers, underscores"
+            className="ml-1 flex-1 py-3 text-base text-emerald-900"
+          />
+        </View>
+        {username.length > 0 && !isUsernameValid ? (
+          <Text className="mt-1 text-sm text-red-700">
+            3-20 characters: lowercase letters, numbers, underscores only
+          </Text>
+        ) : null}
+        {usernameTaken ? (
+          <Text className="mt-1 text-sm text-red-700">That username is already taken</Text>
+        ) : null}
+
+        <Text className="mt-4 text-sm text-emerald-700">Bio (optional)</Text>
+        <TextInput
+          value={bio}
+          onChangeText={(text) => setBio(text.slice(0, 160))}
+          placeholder="Tell other players a bit about yourself"
+          multiline
+          numberOfLines={3}
+          maxLength={160}
+          accessibilityLabel="Bio"
+          accessibilityHint="Optional — a short description shown on your profile"
+          className="mt-1 h-20 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+          style={{ textAlignVertical: 'top' }}
         />
 
         <Text className="mt-4 text-sm text-emerald-700">Preferred position (optional)</Text>
@@ -52,7 +117,7 @@ export default function ProfileSetup() {
           className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
         />
 
-        {mutation.isError ? (
+        {mutation.isError && !usernameTaken ? (
           <Text className="mt-2 text-sm text-red-700">Could not save — try again</Text>
         ) : null}
 

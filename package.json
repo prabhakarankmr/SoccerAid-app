@@ -62,7 +62,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node --stack-size=8000 ./node_modules/typescript/lib/tsc.js --noEmit",
     "test": "jest",
     "prepare": "husky"
   },
