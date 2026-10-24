@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 export default function MatchSetup() {
   return (
-    <View className="flex-1 bg-emerald-50 px-6 pt-20">
+    <View className="flex-1 bg-white px-6 pt-20">
       <Pressable
         onPress={() => router.back()}
         accessibilityLabel="Back to Dashboard"

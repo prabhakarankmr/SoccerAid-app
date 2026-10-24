@@ -1,7 +1,16 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { sendOtp } from '../../src/api/firebasePhoneAuth';
 
@@ -38,7 +47,12 @@ export default function Login() {
   });
 
   return (
-    <View className="flex-1 items-center justify-center bg-emerald-50 px-6">
+    // KeyboardAvoidingView, not a plain View: without this the keyboard covers the phone
+    // input instead of the screen shifting it into view (§9).
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 items-center justify-center bg-white px-6"
+    >
       {Platform.OS === 'web' ? <View nativeID={RECAPTCHA_CONTAINER_ID} /> : null}
 
       {/* Explicit style, not h-32 w-32: NativeWind didn't apply sizing classes to this
@@ -99,6 +113,6 @@ export default function Login() {
           )}
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

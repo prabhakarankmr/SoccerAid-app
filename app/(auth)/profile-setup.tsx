@@ -1,7 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { ApiError, apiClient } from '../../src/api/client';
 import { meKeys } from '../../src/api/queryKeys';
@@ -28,6 +37,12 @@ export default function ProfileSetup() {
       queryClient.setQueryData(meKeys.me, me);
       router.replace('/(tabs)');
     },
+    onError: (error) => {
+      // The on-screen message is deliberately generic; the real error (ApiError has
+      // .code/.message from the backend's envelope, or a network/validation error
+      // otherwise) goes to the console so it's actually diagnosable.
+      console.error('PATCH /me failed:', error);
+    },
   });
 
   const isUsernameValid = USERNAME_PATTERN.test(username);
@@ -36,107 +51,122 @@ export default function ProfileSetup() {
     mutation.error instanceof ApiError && mutation.error.code === 'USERNAME_TAKEN';
 
   return (
-    <View className="flex-1 items-center justify-center bg-emerald-50 px-6">
-      <View className="w-full max-w-sm rounded-lg border border-emerald-200 bg-white/80 p-6">
-        <Text className="text-2xl font-bold text-emerald-800">Set up your profile</Text>
-        <Text className="mt-1 text-emerald-600">This is how other players will see you.</Text>
+    // KeyboardAvoidingView + ScrollView, not a plain View: this form is tall enough (4
+    // fields + avatar) that the keyboard can cover whichever field is focused instead of
+    // the screen scrolling it into view (§9).
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1"
+    >
+      <ScrollView
+        className="flex-1 bg-white"
+        contentContainerClassName="flex-grow items-center justify-center px-6 py-6"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="w-full max-w-sm rounded-lg border border-emerald-200 bg-white/80 p-6">
+          <Text className="text-2xl font-bold text-emerald-800">Set up your profile</Text>
+          <Text className="mt-1 text-emerald-600">This is how other players will see you.</Text>
 
-        {/* Letter-avatar fallback — a real photo comes later via file storage; this isn't a
+          {/* Letter-avatar fallback — a real photo comes later via file storage; this isn't a
             stub, it's the permanent empty/no-photo state most apps show regardless. */}
-        <View className="mt-4 items-center">
-          <View
-            className="items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-100"
-            style={{ width: 88, height: 88 }}
-          >
-            <Text className="text-3xl font-bold text-emerald-700">
-              {displayName.trim() ? displayName.trim().charAt(0).toUpperCase() : '?'}
-            </Text>
+          <View className="mt-4 items-center">
+            <View
+              className="items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-100"
+              style={{ width: 88, height: 88 }}
+            >
+              <Text className="text-3xl font-bold text-emerald-700">
+                {displayName.trim() ? displayName.trim().charAt(0).toUpperCase() : '?'}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        <Text className="mt-6 text-sm text-emerald-700">Display name</Text>
-        <TextInput
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder="e.g. Virat K"
-          accessibilityLabel="Display name"
-          accessibilityHint="The name other players will see"
-          className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
-        />
-
-        <Text className="mt-4 text-sm text-emerald-700">Username</Text>
-        <View className="mt-1 flex-row items-center rounded-lg border border-emerald-300 bg-white px-3">
-          <Text className="text-base text-emerald-700">@</Text>
+          <Text className="mt-6 text-sm text-emerald-700">Display name</Text>
           <TextInput
-            value={username}
-            onChangeText={(text) =>
-              setUsername(
-                text
-                  .toLowerCase()
-                  .replace(/[^a-z0-9_]/g, '')
-                  .slice(0, 20),
-              )
-            }
-            placeholder="yourname"
-            autoCapitalize="none"
-            accessibilityLabel="Username"
-            accessibilityHint="3 to 20 characters: lowercase letters, numbers, underscores"
-            className="ml-1 flex-1 py-3 text-base text-emerald-900"
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="e.g. Virat K"
+            accessibilityLabel="Display name"
+            accessibilityHint="The name other players will see"
+            className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
           />
+
+          <Text className="mt-4 text-sm text-emerald-700">Username</Text>
+          <View className="mt-1 flex-row items-center rounded-lg border border-emerald-300 bg-white px-3">
+            <Text className="text-base text-emerald-700">@</Text>
+            <TextInput
+              value={username}
+              onChangeText={(text) =>
+                setUsername(
+                  text
+                    .toLowerCase()
+                    .replace(/[^a-z0-9_]/g, '')
+                    .slice(0, 20),
+                )
+              }
+              placeholder="yourname"
+              autoCapitalize="none"
+              accessibilityLabel="Username"
+              accessibilityHint="3 to 20 characters: lowercase letters, numbers, underscores"
+              className="ml-1 flex-1 py-3 text-base text-emerald-900"
+            />
+          </View>
+          {username.length > 0 && !isUsernameValid ? (
+            <Text className="mt-1 text-sm text-red-700">
+              3-20 characters: lowercase letters, numbers, underscores only
+            </Text>
+          ) : null}
+          {usernameTaken ? (
+            <Text className="mt-1 text-sm text-red-700">That username is already taken</Text>
+          ) : null}
+
+          <Text className="mt-4 text-sm text-emerald-700">Bio (optional)</Text>
+          <TextInput
+            value={bio}
+            onChangeText={(text) => setBio(text.slice(0, 160))}
+            placeholder="Tell other players a bit about yourself"
+            multiline
+            numberOfLines={3}
+            maxLength={160}
+            accessibilityLabel="Bio"
+            accessibilityHint="Optional — a short description shown on your profile"
+            className="mt-1 h-20 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+            style={{ textAlignVertical: 'top' }}
+          />
+
+          <Text className="mt-4 text-sm text-emerald-700">Preferred position (optional)</Text>
+          <TextInput
+            value={preferredPosition}
+            onChangeText={setPreferredPosition}
+            placeholder="e.g. Striker"
+            accessibilityLabel="Preferred position"
+            accessibilityHint="Optional — the position you usually play"
+            className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+          />
+
+          {mutation.isError && !usernameTaken ? (
+            <Text className="mt-2 text-sm text-red-700">
+              Could not save — try again
+              {__DEV__ && mutation.error instanceof Error ? ` (${mutation.error.message})` : ''}
+            </Text>
+          ) : null}
+
+          <Pressable
+            onPress={() => mutation.mutate()}
+            disabled={!isValid || mutation.isPending}
+            accessibilityLabel="Save profile and continue"
+            accessibilityHint="Saves your profile and takes you to the home screen"
+            className={`mt-6 items-center rounded-lg py-3 ${
+              isValid && !mutation.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
+            }`}
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="font-bold text-white">Continue</Text>
+            )}
+          </Pressable>
         </View>
-        {username.length > 0 && !isUsernameValid ? (
-          <Text className="mt-1 text-sm text-red-700">
-            3-20 characters: lowercase letters, numbers, underscores only
-          </Text>
-        ) : null}
-        {usernameTaken ? (
-          <Text className="mt-1 text-sm text-red-700">That username is already taken</Text>
-        ) : null}
-
-        <Text className="mt-4 text-sm text-emerald-700">Bio (optional)</Text>
-        <TextInput
-          value={bio}
-          onChangeText={(text) => setBio(text.slice(0, 160))}
-          placeholder="Tell other players a bit about yourself"
-          multiline
-          numberOfLines={3}
-          maxLength={160}
-          accessibilityLabel="Bio"
-          accessibilityHint="Optional — a short description shown on your profile"
-          className="mt-1 h-20 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
-          style={{ textAlignVertical: 'top' }}
-        />
-
-        <Text className="mt-4 text-sm text-emerald-700">Preferred position (optional)</Text>
-        <TextInput
-          value={preferredPosition}
-          onChangeText={setPreferredPosition}
-          placeholder="e.g. Striker"
-          accessibilityLabel="Preferred position"
-          accessibilityHint="Optional — the position you usually play"
-          className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
-        />
-
-        {mutation.isError && !usernameTaken ? (
-          <Text className="mt-2 text-sm text-red-700">Could not save — try again</Text>
-        ) : null}
-
-        <Pressable
-          onPress={() => mutation.mutate()}
-          disabled={!isValid || mutation.isPending}
-          accessibilityLabel="Save profile and continue"
-          accessibilityHint="Saves your profile and takes you to the home screen"
-          className={`mt-6 items-center rounded-lg py-3 ${
-            isValid && !mutation.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
-          }`}
-        >
-          {mutation.isPending ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text className="font-bold text-white">Continue</Text>
-          )}
-        </Pressable>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

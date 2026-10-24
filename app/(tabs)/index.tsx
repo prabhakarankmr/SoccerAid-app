@@ -15,7 +15,7 @@ export default function Home() {
   const { data: me } = useMe();
 
   return (
-    <View className="flex-1 bg-emerald-50 px-6 pt-20">
+    <View className="flex-1 bg-white px-6 pb-32 pt-20">
       <Text className="text-2xl font-bold text-emerald-800">
         {me?.name ? `Welcome, ${me.name}` : 'Welcome to SoccerAid'}
       </Text>
@@ -40,10 +40,6 @@ export default function Home() {
         <Trophy color="#ffffff" size={22} />
         <Text className="ml-3 text-base font-bold text-white">Create Tournament</Text>
       </Pressable>
-
-      <Text className="mt-8 text-center text-sm text-emerald-600">
-        Live/recent matches dashboard lands per FRONTEND_INSTRUCTIONS.md §5.7.
-      </Text>
     </View>
   );
 }

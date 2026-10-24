@@ -1,7 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { apiClient } from '../../src/api/client';
 import { confirmOtp } from '../../src/api/firebasePhoneAuth';
@@ -38,7 +46,12 @@ export default function Otp() {
   });
 
   return (
-    <View className="flex-1 items-center justify-center bg-emerald-50 px-6">
+    // KeyboardAvoidingView, not a plain View: without this the keyboard covers the code
+    // input instead of the screen shifting it into view (§9).
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 items-center justify-center bg-white px-6"
+    >
       <View className="w-full max-w-sm rounded-lg border border-emerald-200 bg-white/80 p-6">
         <Text className="text-2xl font-bold text-emerald-800">Enter the code</Text>
         <Text className="mt-1 text-emerald-600">Sent to {phone}</Text>
@@ -77,6 +90,6 @@ export default function Otp() {
           )}
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

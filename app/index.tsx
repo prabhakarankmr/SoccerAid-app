@@ -15,7 +15,7 @@ export default function Index() {
 
   if (!hydrated) {
     return (
-      <View className="flex-1 items-center justify-center bg-emerald-50">
+      <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator color="#059669" />
       </View>
     );
