@@ -7,3 +7,12 @@ export const teamKeys = {
   opponents: (query: string) => ['teams', 'opponents', query] as const,
   detail: (id: string) => ['teams', 'detail', id] as const,
 };
+
+export const metaKeys = {
+  formats: ['meta', 'formats'] as const,
+  formations: (playersPerSide: number) => ['meta', 'formations', playersPerSide] as const,
+};
+
+export const matchKeys = {
+  detail: (id: string) => ['matches', 'detail', id] as const,
+};

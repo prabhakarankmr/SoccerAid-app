@@ -21,7 +21,9 @@ async function request<T>(path: string, options: RequestInit = {}, canRetry = tr
   const res = await fetch(`${env.apiUrl}/api/${API_VERSION}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      // Only set when there's a body — Fastify's JSON body parser rejects an empty body if
+      // Content-Type says json (DELETE, and any bodyless GET, has no body to parse).
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...options.headers,
     },

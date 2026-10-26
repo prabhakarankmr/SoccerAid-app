@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 
 import { apiClient } from '../../src/api/client';
-import { PlayerSummary, usePlayerSearch } from '../../src/hooks/usePlayers';
+import { MemberLookup } from '../../src/components/team/MemberLookup';
+import { PlayerSummary } from '../../src/hooks/usePlayers';
 import { TeamSummary } from '../../src/hooks/useTeams';
 
 export default function NewTeam() {
@@ -22,21 +23,7 @@ export default function NewTeam() {
   const [name, setName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [place, setPlace] = useState('');
-  const [captainQuery, setCaptainQuery] = useState('');
   const [selectedCaptain, setSelectedCaptain] = useState<PlayerSummary | null>(null);
-
-  const playerResults = usePlayerSearch(captainQuery);
-
-  const createPlayerMutation = useMutation({
-    mutationFn: (displayName: string) => apiClient.post<PlayerSummary>('/players', { displayName }),
-    onSuccess: (player) => {
-      setSelectedCaptain(player);
-      setCaptainQuery('');
-    },
-    onError: (error) => {
-      console.error('POST /players failed:', error);
-    },
-  });
 
   const createTeamMutation = useMutation({
     mutationFn: () =>
@@ -116,68 +103,26 @@ export default function NewTeam() {
           className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
         />
 
-        <Text className="mt-4 text-sm text-emerald-700">Captain</Text>
+        {/* Captain must be a real app user — looked up by their exact phone/username, not a
+            free-text name field (FRONTEND_INSTRUCTIONS.md §5.9, §7). */}
         {selectedCaptain ? (
-          <View className="mt-1 flex-row items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3">
-            <Text className="text-base text-emerald-900">{selectedCaptain.displayName}</Text>
-            <Pressable
-              onPress={() => setSelectedCaptain(null)}
-              accessibilityLabel="Change captain"
-              accessibilityHint="Clears the selected captain so you can search again"
-            >
-              <Text className="font-bold text-emerald-700">Change</Text>
-            </Pressable>
-          </View>
-        ) : (
           <>
-            <TextInput
-              value={captainQuery}
-              onChangeText={setCaptainQuery}
-              placeholder="Search for a player by name"
-              accessibilityLabel="Captain search"
-              accessibilityHint="Type to search existing players, or create a new one below"
-              className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
-            />
-            {captainQuery.trim().length > 0 ? (
-              <View className="mt-1 rounded-lg border border-emerald-200 bg-white">
-                {playerResults.isLoading ? (
-                  <ActivityIndicator className="py-3" color="#059669" />
-                ) : (
-                  <>
-                    {(playerResults.data ?? []).map((player) => (
-                      <Pressable
-                        key={player.id}
-                        onPress={() => {
-                          setSelectedCaptain(player);
-                          setCaptainQuery('');
-                        }}
-                        accessibilityLabel={`Select ${player.displayName} as captain`}
-                        accessibilityHint="Sets this existing player as the team captain"
-                        className="border-b border-emerald-100 px-3 py-3"
-                      >
-                        <Text className="text-emerald-900">{player.displayName}</Text>
-                      </Pressable>
-                    ))}
-                    <Pressable
-                      onPress={() => createPlayerMutation.mutate(captainQuery.trim())}
-                      disabled={createPlayerMutation.isPending}
-                      accessibilityLabel={`Create new player ${captainQuery.trim()}`}
-                      accessibilityHint="Creates a new player with this name and sets them as captain"
-                      className="px-3 py-3"
-                    >
-                      {createPlayerMutation.isPending ? (
-                        <ActivityIndicator color="#059669" />
-                      ) : (
-                        <Text className="font-bold text-emerald-700">
-                          + Create &quot;{captainQuery.trim()}&quot; as a new player
-                        </Text>
-                      )}
-                    </Pressable>
-                  </>
-                )}
-              </View>
-            ) : null}
+            <Text className="mt-4 text-sm text-emerald-700">Captain</Text>
+            <View className="mt-1 flex-row items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3">
+              <Text className="text-base text-emerald-900">{selectedCaptain.displayName}</Text>
+              <Pressable
+                onPress={() => setSelectedCaptain(null)}
+                accessibilityLabel="Change captain"
+                accessibilityHint="Clears the selected captain so you can search again"
+              >
+                <Text className="font-bold text-emerald-700">Change</Text>
+              </Pressable>
+            </View>
           </>
+        ) : (
+          <View className="mt-4">
+            <MemberLookup label="Captain" onSelect={setSelectedCaptain} />
+          </View>
         )}
 
         <Text className="mt-4 text-sm text-emerald-700">Contact number</Text>

@@ -114,7 +114,7 @@ export default function Teams() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search by name or code"
+            placeholder="Search by name, code, captain's phone or username"
             autoCapitalize="none"
             accessibilityLabel="Search teams"
             accessibilityHint="Type a team name or its unique code"

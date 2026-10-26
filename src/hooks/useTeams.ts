@@ -11,11 +11,17 @@ export interface TeamSummary {
   contactNumber: string | null;
   place: string | null;
   captain: { id: string; displayName: string } | null;
+  // So the UI can hide owner-only actions (edit captain, add/remove player) instead of
+  // showing a control that would just 403 — the backend still enforces ownership regardless.
+  ownerId: string;
 }
 
 export interface TeamRosterPlayer {
   id: string;
   displayName: string;
+  isCaptain: boolean;
+  // Added as a name-only guest (no SoccerAid account) rather than found via MemberLookup.
+  isGuest: boolean;
 }
 
 // GET /teams/:id only — list endpoints (owned/opponents) return TeamSummary, not this; the
