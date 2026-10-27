@@ -1,19 +1,41 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import ArrowLeftRight from 'lucide-react-native/icons/arrow-left-right';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
+import Clock from 'lucide-react-native/icons/clock';
+import Pencil from 'lucide-react-native/icons/pencil';
+import RotateCcw from 'lucide-react-native/icons/rotate-ccw';
+import RotateCw from 'lucide-react-native/icons/rotate-cw';
+import Target from 'lucide-react-native/icons/target';
 import UserPlus from 'lucide-react-native/icons/user-plus';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { apiClient, ApiError } from '../../../src/api/client';
+import { matchKeys } from '../../../src/api/queryKeys';
 import { FootballPitch, PitchSide, PitchSlot } from '../../../src/components/pitch/FootballPitch';
 import { Formation, FormationSlot, useFormations } from '../../../src/hooks/useMeta';
-import { LineupPlayerInput, useMatch, useSetLineups } from '../../../src/hooks/useMatches';
+import {
+  LineupPlayerInput,
+  useMatch,
+  useSetLineups,
+  useUpdateMatch,
+} from '../../../src/hooks/useMatches';
 import { PlayerSummary } from '../../../src/hooks/usePlayers';
 import { TeamDetail, TeamRosterPlayer, useTeam } from '../../../src/hooks/useTeams';
 import { teamA, teamB } from '../../../src/theme/tokens';
+
+const HALF_DURATION_PRESETS_MIN = [5, 10, 15, 20, 25, 30, 35, 40, 45];
 
 // slotIndex -> playerId, or null for an unfilled position.
 type SlotAssignments = Record<number, string | null>;
@@ -109,6 +131,7 @@ interface RosterPanelProps {
   available: TeamRosterPlayer[];
   swapSelection: string | null;
   onToggleSwapSelect: (playerId: string) => void;
+  onMakeGoalkeeper: (playerId: string) => void;
   teamId: string;
   onGuestAdded: (player: TeamRosterPlayer) => void;
 }
@@ -122,6 +145,7 @@ function RosterPanel({
   available,
   swapSelection,
   onToggleSwapSelect,
+  onMakeGoalkeeper,
   teamId,
   onGuestAdded,
 }: RosterPanelProps) {
@@ -180,7 +204,16 @@ function RosterPanel({
               <View className="mr-2 rounded-full bg-red-100 px-1.5 py-0.5">
                 <Text className="text-[10px] font-bold text-red-700">GK</Text>
               </View>
-            ) : null}
+            ) : (
+              <Pressable
+                onPress={() => onMakeGoalkeeper(player.id)}
+                accessibilityLabel={`Make ${player.displayName} goalkeeper`}
+                accessibilityHint="Makes this player the goalkeeper, moving whoever holds it now out of goal"
+                className="mr-2"
+              >
+                <Target color="#000000" size={16} />
+              </Pressable>
+            )}
             <Pressable
               onPress={() => onToggleSwapSelect(player.id)}
               accessibilityLabel={`Select ${player.displayName} to swap`}
@@ -255,6 +288,7 @@ export default function MatchLineup() {
     homePlayerIds?: string;
     awayPlayerIds?: string;
   }>();
+  const queryClient = useQueryClient();
   const { data: match, isLoading: isMatchLoading, error } = useMatch(id);
   const { data: homeTeam } = useTeam(match?.homeTeam.id);
   const { data: awayTeam } = useTeam(match?.awayTeam.id);
@@ -267,8 +301,43 @@ export default function MatchLineup() {
   const [awayExtras, setAwayExtras] = useState<TeamRosterPlayer[]>([]);
   const [homeSwapSelection, setHomeSwapSelection] = useState<string | null>(null);
   const [awaySwapSelection, setAwaySwapSelection] = useState<string | null>(null);
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   const setLineups = useSetLineups(id);
+  const updateMatch = useUpdateMatch(id);
+
+  // Leaving this screen always restores portrait — never strand the rest of the app rotated.
+  // No-op on web: orientation locking there is unreliable/unsupported outside fullscreen, so
+  // `toggleLandscape` below doesn't attempt it there either, just widens the layout instead.
+  useEffect(() => {
+    return () => {
+      if (Platform.OS !== 'web') {
+        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(
+          () => {},
+        );
+      }
+    };
+  }, []);
+
+  async function toggleLandscape() {
+    const next = !isLandscape;
+    setIsLandscape(next);
+
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    try {
+      await ScreenOrientation.lockAsync(
+        next
+          ? ScreenOrientation.OrientationLock.LANDSCAPE
+          : ScreenOrientation.OrientationLock.PORTRAIT_UP,
+      );
+    } catch (orientationError) {
+      console.error('Screen orientation lock failed:', orientationError);
+    }
+  }
 
   const homeAvailable = useMemo(
     () => [...filterAvailable(homeTeam?.players ?? [], homePlayerIds), ...homeExtras],
@@ -309,15 +378,54 @@ export default function MatchLineup() {
     }
   }
 
-  function handleSetGoalkeeper(side: PitchSide, slotIndex: number) {
+  // Shared by both the pitch (tap a token — already has a slotIndex) and the roster list (a
+  // benched player has none) — looking it up here means either caller can just supply a
+  // playerId and not care which case applies.
+  function makeGoalkeeper(side: PitchSide, playerId: string) {
     const slots = side === 'home' ? homeSlots : awaySlots;
+    const assignments = side === 'home' ? homeAssignments : awayAssignments;
     const gkSlot = slots.find((slot) => slot.isGoalkeeper);
 
-    if (!gkSlot || gkSlot.slotIndex === slotIndex) {
+    if (!gkSlot) {
       return;
     }
 
-    handleSwap(side, slotIndex, gkSlot.slotIndex);
+    const currentSlot = slotIndexForPlayer(assignments, playerId);
+
+    if (currentSlot === gkSlot.slotIndex) {
+      return;
+    }
+
+    if (currentSlot !== null) {
+      handleSwap(side, currentSlot, gkSlot.slotIndex);
+      return;
+    }
+
+    // Benched — assign directly into the GK slot; whoever held it is simply no longer
+    // referenced anywhere, so they fall out to the bench on their own.
+    const next = { ...assignments, [gkSlot.slotIndex]: playerId };
+
+    if (side === 'home') {
+      setHomeOverrides(next);
+    } else {
+      setAwayOverrides(next);
+    }
+  }
+
+  function handleSetGoalkeeper(side: PitchSide, slotIndex: number) {
+    const assignments = side === 'home' ? homeAssignments : awayAssignments;
+    const playerId = assignments[slotIndex];
+
+    if (!playerId) {
+      return;
+    }
+
+    makeGoalkeeper(side, playerId);
+  }
+
+  function resetPositions() {
+    setHomeOverrides(null);
+    setAwayOverrides(null);
   }
 
   function handleAssignNext(side: PitchSide, slotIndex: number) {
@@ -462,6 +570,45 @@ export default function MatchLineup() {
     };
   });
 
+  if (isLandscape) {
+    return (
+      <View className="flex-1 bg-white px-4 pb-6 pt-12">
+        <View className="flex-row items-center justify-between gap-2">
+          <Pressable
+            onPress={() => void toggleLandscape()}
+            accessibilityLabel="Exit landscape view"
+            accessibilityHint="Returns to the normal player setup layout"
+            className="flex-row items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2"
+          >
+            <RotateCw color="#000000" size={16} />
+            <Text className="text-xs font-bold text-black">Exit Landscape</Text>
+          </Pressable>
+          <Pressable
+            onPress={resetPositions}
+            accessibilityLabel="Reset positions"
+            accessibilityHint="Reverts every player to their default position for the chosen formation"
+            className="flex-row items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2"
+          >
+            <RotateCcw color="#000000" size={16} />
+            <Text className="text-xs font-bold text-black">Reset Positions</Text>
+          </Pressable>
+        </View>
+
+        <View className="mt-3 flex-1">
+          <FootballPitch
+            homeLabel="Team A"
+            awayLabel="Team B"
+            homeSlots={homePitchSlots}
+            awaySlots={awayPitchSlots}
+            onSwap={handleSwap}
+            onSetGoalkeeper={handleSetGoalkeeper}
+            onAssignNext={handleAssignNext}
+          />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView className="flex-1 bg-white" contentContainerClassName="px-6 pb-16 pt-20">
       <Pressable
@@ -477,6 +624,62 @@ export default function MatchLineup() {
       <Text className="mt-1 text-black">
         {awayTeam.name} vs {homeTeam.name} ({match.playersPerSide}v{match.playersPerSide})
       </Text>
+
+      {isEditingDuration ? (
+        <View className="mt-3 flex-row flex-wrap">
+          {HALF_DURATION_PRESETS_MIN.map((minutes) => (
+            <Pressable
+              key={minutes}
+              onPress={() => {
+                updateMatch.mutate(
+                  { halfDurationSec: minutes * 60 },
+                  {
+                    onSuccess: (updated) => {
+                      queryClient.setQueryData(matchKeys.detail(id ?? ''), updated);
+                      setIsEditingDuration(false);
+                    },
+                    onError: (updateError) => {
+                      console.error('PATCH /matches/:id failed:', updateError);
+                    },
+                  },
+                );
+              }}
+              disabled={updateMatch.isPending}
+              accessibilityLabel={`${String(minutes)} minute halves`}
+              accessibilityHint="Sets the half duration for this match"
+              className={`mb-2 mr-2 rounded-full border px-3 py-1.5 ${
+                match.halfDurationSec === minutes * 60
+                  ? 'border-gray-300 bg-black'
+                  : 'border-gray-300 bg-white'
+              }`}
+            >
+              <Text
+                className={`text-xs font-bold ${
+                  match.halfDurationSec === minutes * 60 ? 'text-white' : 'text-black'
+                }`}
+              >
+                {minutes} min
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setIsEditingDuration(true)}
+          accessibilityLabel={`Half duration: ${String(match.halfDurationSec / 60)} minutes`}
+          accessibilityHint="Opens options to change the half duration"
+          className="mt-2 flex-row items-center self-start rounded-full border border-gray-300 px-3 py-1.5"
+        >
+          <Clock color="#000000" size={14} />
+          <Text className="ml-1.5 text-xs font-bold text-black">
+            {match.halfDurationSec / 60} min halves
+          </Text>
+          <Pencil color="#000000" size={12} style={{ marginLeft: 6 }} />
+        </Pressable>
+      )}
+      {updateMatch.isError ? (
+        <Text className="mt-1 text-xs text-red-700">Could not update duration — try again</Text>
+      ) : null}
 
       {setLineups.isError ? (
         <Text className="mt-2 text-sm text-red-700">
@@ -528,6 +731,7 @@ export default function MatchLineup() {
             available={awayAvailable}
             swapSelection={awaySwapSelection}
             onToggleSwapSelect={(playerId) => handleToggleSwapSelect('away', playerId)}
+            onMakeGoalkeeper={(playerId) => makeGoalkeeper('away', playerId)}
             teamId={awayTeam.id}
             onGuestAdded={(player) => setAwayExtras((prev) => [...prev, player])}
           />
@@ -540,13 +744,37 @@ export default function MatchLineup() {
             available={homeAvailable}
             swapSelection={homeSwapSelection}
             onToggleSwapSelect={(playerId) => handleToggleSwapSelect('home', playerId)}
+            onMakeGoalkeeper={(playerId) => makeGoalkeeper('home', playerId)}
             teamId={homeTeam.id}
             onGuestAdded={(player) => setHomeExtras((prev) => [...prev, player])}
           />
         </View>
       ) : null}
 
-      <View className="mt-4">
+      <View className="mt-4 flex-row gap-2">
+        <Pressable
+          onPress={() => void toggleLandscape()}
+          accessibilityLabel={isLandscape ? 'Exit landscape view' : 'Landscape view'}
+          accessibilityHint="Rotates the pitch for more room to arrange players"
+          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2"
+        >
+          <RotateCw color="#000000" size={16} />
+          <Text className="text-xs font-bold text-black">
+            {isLandscape ? 'Exit Landscape' : 'Landscape View'}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={resetPositions}
+          accessibilityLabel="Reset positions"
+          accessibilityHint="Reverts every player to their default position for the chosen formation"
+          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2"
+        >
+          <RotateCcw color="#000000" size={16} />
+          <Text className="text-xs font-bold text-black">Reset Positions</Text>
+        </Pressable>
+      </View>
+
+      <View className="mt-3">
         <FootballPitch
           homeLabel="Team A"
           awayLabel="Team B"

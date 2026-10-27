@@ -87,3 +87,14 @@ export function useSetLineups(matchId: string | undefined) {
       apiClient.put<MatchDetail>(`/matches/${matchId ?? ''}/lineups`, input),
   });
 }
+
+export interface UpdateMatchInput {
+  halfDurationSec?: number;
+}
+
+export function useUpdateMatch(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: (input: UpdateMatchInput) =>
+      apiClient.patch<MatchDetail>(`/matches/${matchId ?? ''}`, input),
+  });
+}
