@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import { apiClient } from '../../src/api/client';
-import { MemberLookup } from '../../src/components/team/MemberLookup';
+import { CaptainPicker } from '../../src/components/team/CaptainPicker';
 import { PlayerSummary } from '../../src/hooks/usePlayers';
 import { TeamSummary } from '../../src/hooks/useTeams';
 
@@ -63,69 +63,69 @@ export default function NewTeam() {
           onPress={() => router.back()}
           accessibilityLabel="Back to Teams"
           accessibilityHint="Returns to the teams list without saving"
-          className="self-start rounded-lg border border-emerald-300 px-4 py-2"
+          className="self-start rounded-lg border border-gray-300 px-4 py-2"
         >
-          <Text className="font-bold text-emerald-700">← Back to Teams</Text>
+          <Text className="font-bold text-black">← Back to Teams</Text>
         </Pressable>
 
-        <Text className="mt-6 text-2xl font-bold text-emerald-800">Add Team</Text>
-        <Text className="mt-1 text-emerald-600">Set up your team profile.</Text>
+        <Text className="mt-6 text-2xl font-bold text-black">Add Team</Text>
+        <Text className="mt-1 text-black">Set up your team profile.</Text>
 
         {/* Logo placeholder — same pattern as the profile avatar: not a stub, this is the
             permanent no-photo state; the camera badge marks where upload will go later. */}
         <View className="mt-4 items-center">
           <View className="relative">
             <View
-              className="items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-100"
+              className="items-center justify-center rounded-full border-2 border-gray-300 bg-gray-100"
               style={{ width: 88, height: 88 }}
             >
-              <Text className="text-3xl font-bold text-emerald-700">
+              <Text className="text-3xl font-bold text-black">
                 {name.trim() ? name.trim().charAt(0).toUpperCase() : '?'}
               </Text>
             </View>
             <View
-              className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-white bg-emerald-600"
+              className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-white bg-black"
               style={{ width: 28, height: 28 }}
             >
               <Camera color="#ffffff" size={14} />
             </View>
           </View>
-          <Text className="mt-2 text-xs text-emerald-600">Photo upload coming soon</Text>
+          <Text className="mt-2 text-xs text-black">Photo upload coming soon</Text>
         </View>
 
-        <Text className="mt-6 text-sm text-emerald-700">Team name</Text>
+        <Text className="mt-6 text-sm text-black">Team name</Text>
         <TextInput
           value={name}
           onChangeText={setName}
           placeholder="e.g. Riverside FC"
           accessibilityLabel="Team name"
           accessibilityHint="The name shown for this team"
-          className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+          className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
         />
 
-        {/* Captain must be a real app user — looked up by their exact phone/username, not a
-            free-text name field (FRONTEND_INSTRUCTIONS.md §5.9, §7). */}
+        {/* Captain: a real app user (exact phone/username lookup) or a guest with no account —
+            e.g. an opponent team that isn't on SoccerAid at all (FRONTEND_INSTRUCTIONS.md §5.9). */}
         {selectedCaptain ? (
           <>
-            <Text className="mt-4 text-sm text-emerald-700">Captain</Text>
-            <View className="mt-1 flex-row items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3">
-              <Text className="text-base text-emerald-900">{selectedCaptain.displayName}</Text>
+            <Text className="mt-4 text-sm text-black">Captain</Text>
+            <View className="mt-1 flex-row items-center justify-between rounded-lg border border-gray-300 bg-gray-100 px-3 py-3">
+              <Text className="text-base text-black">{selectedCaptain.displayName}</Text>
               <Pressable
                 onPress={() => setSelectedCaptain(null)}
                 accessibilityLabel="Change captain"
                 accessibilityHint="Clears the selected captain so you can search again"
               >
-                <Text className="font-bold text-emerald-700">Change</Text>
+                <Text className="font-bold text-black">Change</Text>
               </Pressable>
             </View>
           </>
         ) : (
           <View className="mt-4">
-            <MemberLookup label="Captain" onSelect={setSelectedCaptain} />
+            <CaptainPicker onSelect={setSelectedCaptain} />
           </View>
         )}
 
-        <Text className="mt-4 text-sm text-emerald-700">Contact number</Text>
+        <Text className="mt-4 text-sm text-black">Contact number</Text>
         <TextInput
           value={contactNumber}
           onChangeText={setContactNumber}
@@ -133,17 +133,17 @@ export default function NewTeam() {
           keyboardType="phone-pad"
           accessibilityLabel="Contact number"
           accessibilityHint="Optional — a phone number for this team"
-          className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+          className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
         />
 
-        <Text className="mt-4 text-sm text-emerald-700">Place</Text>
+        <Text className="mt-4 text-sm text-black">Place</Text>
         <TextInput
           value={place}
           onChangeText={setPlace}
           placeholder="e.g. Riverside Ground, Chennai"
           accessibilityLabel="Place"
           accessibilityHint="Optional — where this team is based or usually plays"
-          className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+          className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
         />
 
         {createTeamMutation.isError ? (
@@ -161,7 +161,7 @@ export default function NewTeam() {
           accessibilityLabel="Save team"
           accessibilityHint="Creates the team and opens its details"
           className={`mt-6 items-center rounded-lg py-3 ${
-            isValid && !createTeamMutation.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
+            isValid && !createTeamMutation.isPending ? 'bg-black' : 'bg-gray-300'
           }`}
         >
           {createTeamMutation.isPending ? (

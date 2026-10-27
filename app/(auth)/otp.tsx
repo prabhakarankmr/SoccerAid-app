@@ -52,9 +52,9 @@ export default function Otp() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 items-center justify-center bg-white px-6"
     >
-      <View className="w-full max-w-sm rounded-lg border border-emerald-200 bg-white/80 p-6">
-        <Text className="text-2xl font-bold text-emerald-800">Enter the code</Text>
-        <Text className="mt-1 text-emerald-600">Sent to {phone}</Text>
+      <View className="w-full max-w-sm rounded-lg border border-gray-300 bg-white/80 p-6">
+        <Text className="text-2xl font-bold text-black">Enter the code</Text>
+        <Text className="mt-1 text-black">Sent to {phone}</Text>
 
         <TextInput
           value={code}
@@ -64,7 +64,7 @@ export default function Otp() {
           placeholder="123456"
           accessibilityLabel="One-time code"
           accessibilityHint="Enter the 6-digit code sent by SMS"
-          className="mt-6 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-center text-lg tracking-widest text-emerald-900"
+          className="mt-6 rounded-lg border border-gray-300 bg-white px-3 py-3 text-center text-lg tracking-widest text-black"
         />
 
         {mutation.isError ? (
@@ -80,7 +80,7 @@ export default function Otp() {
           accessibilityLabel="Verify code"
           accessibilityHint="Confirms the code and signs you in"
           className={`mt-6 items-center rounded-lg py-3 ${
-            isValid && !mutation.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
+            isValid && !mutation.isPending ? 'bg-black' : 'bg-gray-300'
           }`}
         >
           {mutation.isPending ? (

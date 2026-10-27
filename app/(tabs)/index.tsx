@@ -16,16 +16,16 @@ export default function Home() {
 
   return (
     <View className="flex-1 bg-white px-6 pb-32 pt-20">
-      <Text className="text-2xl font-bold text-emerald-800">
+      <Text className="text-2xl font-bold text-black">
         {me?.name ? `Welcome, ${me.name}` : 'Welcome to SoccerAid'}
       </Text>
-      <Text className="mt-1 text-emerald-600">What would you like to set up?</Text>
+      <Text className="mt-1 text-black">What would you like to set up?</Text>
 
       <Pressable
         onPress={() => router.push('/match/new')}
         accessibilityLabel="Create match"
         accessibilityHint="Starts setting up a new match"
-        className="mt-6 flex-row items-center rounded-lg bg-emerald-600 px-5 py-4"
+        className="mt-6 flex-row items-center rounded-lg bg-black px-5 py-4"
       >
         <Goal color="#ffffff" size={22} />
         <Text className="ml-3 text-base font-bold text-white">Create Match</Text>

@@ -24,21 +24,21 @@ function TeamListItem({ team }: { team: TeamSummary }) {
       onPress={() => router.push({ pathname: '/teams/[id]', params: { id: team.id } })}
       accessibilityLabel={`${team.name}, code ${team.code}`}
       accessibilityHint="Opens this team's details"
-      className="mt-3 flex-row items-center rounded-lg border border-emerald-200 bg-white p-3"
+      className="mt-3 flex-row items-center rounded-lg border border-gray-300 bg-white p-3"
     >
       <View
-        className="items-center justify-center rounded-full bg-emerald-100"
+        className="items-center justify-center rounded-full bg-gray-100"
         style={{ width: 48, height: 48 }}
       >
-        <Text className="text-lg font-bold text-emerald-700">
+        <Text className="text-lg font-bold text-black">
           {team.name.trim().charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
       <View className="ml-3 flex-1">
-        <Text className="text-base font-bold text-emerald-900">{team.name}</Text>
-        <Text className="text-xs text-emerald-600">Code: {team.code}</Text>
+        <Text className="text-base font-bold text-black">{team.name}</Text>
+        <Text className="text-xs text-black">Code: {team.code}</Text>
         {team.captain ? (
-          <Text className="text-xs text-emerald-600">Captain: {team.captain.displayName}</Text>
+          <Text className="text-xs text-black">Captain: {team.captain.displayName}</Text>
         ) : null}
       </View>
       <ChevronRight color="#9ca3af" size={20} />
@@ -68,13 +68,13 @@ export default function Teams() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-emerald-800">Teams</Text>
+          <Text className="text-2xl font-bold text-black">Teams</Text>
           {segment === 'our' ? (
             <Pressable
               onPress={() => router.push('/teams/new')}
               accessibilityLabel="Add team"
               accessibilityHint="Opens the form to create a new team"
-              className="flex-row items-center rounded-lg bg-emerald-600 px-3 py-2"
+              className="flex-row items-center rounded-lg bg-black px-3 py-2"
             >
               <Plus color="#ffffff" size={18} />
               <Text className="ml-1 font-bold text-white">Add Team</Text>
@@ -82,18 +82,14 @@ export default function Teams() {
           ) : null}
         </View>
 
-        <View className="mt-4 flex-row rounded-lg border border-emerald-200 bg-emerald-50 p-1">
+        <View className="mt-4 flex-row rounded-lg border border-gray-300 bg-gray-100 p-1">
           <Pressable
             onPress={() => setSegment('our')}
             accessibilityLabel="Our Teams"
             accessibilityHint="Shows teams you own"
             className={`flex-1 items-center rounded-md py-2 ${segment === 'our' ? 'bg-white' : ''}`}
           >
-            <Text
-              className={`font-bold ${segment === 'our' ? 'text-emerald-800' : 'text-emerald-500'}`}
-            >
-              Our Teams
-            </Text>
+            <Text className="font-bold text-black">Our Teams</Text>
           </Pressable>
           <Pressable
             onPress={() => setSegment('opponents')}
@@ -101,16 +97,12 @@ export default function Teams() {
             accessibilityHint="Shows teams that have played against your teams"
             className={`flex-1 items-center rounded-md py-2 ${segment === 'opponents' ? 'bg-white' : ''}`}
           >
-            <Text
-              className={`font-bold ${segment === 'opponents' ? 'text-emerald-800' : 'text-emerald-500'}`}
-            >
-              Opponent Teams
-            </Text>
+            <Text className="font-bold text-black">Opponent Teams</Text>
           </Pressable>
         </View>
 
-        <View className="mt-4 flex-row items-center rounded-lg border border-emerald-300 bg-white px-3">
-          <SearchIcon color="#047857" size={18} />
+        <View className="mt-4 flex-row items-center rounded-lg border border-gray-300 bg-white px-3">
+          <SearchIcon color="#000000" size={18} />
           <TextInput
             value={search}
             onChangeText={setSearch}
@@ -118,14 +110,14 @@ export default function Teams() {
             autoCapitalize="none"
             accessibilityLabel="Search teams"
             accessibilityHint="Type a team name or its unique code"
-            className="ml-2 flex-1 py-3 text-base text-emerald-900"
+            className="ml-2 flex-1 py-3 text-base text-black"
           />
         </View>
 
         {active.isLoading ? (
-          <ActivityIndicator className="mt-8" color="#059669" />
+          <ActivityIndicator className="mt-8" color="#000000" />
         ) : teams.length === 0 ? (
-          <Text className="mt-8 text-center text-emerald-500">
+          <Text className="mt-8 text-center text-black">
             {segment === 'our'
               ? 'No teams yet — add one to get started.'
               : 'No opponent teams yet — they will show up here once you play a match against them.'}

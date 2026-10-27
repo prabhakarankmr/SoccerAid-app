@@ -36,7 +36,7 @@ export function MemberLookup({ label, onSelect }: MemberLookupProps) {
 
   return (
     <View>
-      <Text className="text-sm text-emerald-700">{label}</Text>
+      <Text className="text-sm text-black">{label}</Text>
       <View className="mt-1 flex-row items-center gap-2">
         <TextInput
           value={identifier}
@@ -47,7 +47,7 @@ export function MemberLookup({ label, onSelect }: MemberLookupProps) {
           accessibilityHint="Enter the phone number or username of an existing SoccerAid user"
           onSubmitEditing={handleSearch}
           returnKeyType="search"
-          className="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+          className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
         />
         <Pressable
           onPress={handleSearch}
@@ -55,7 +55,7 @@ export function MemberLookup({ label, onSelect }: MemberLookupProps) {
           accessibilityLabel="Search"
           accessibilityHint="Looks up a user by the entered phone number or username"
           className={`items-center justify-center rounded-lg px-4 py-3 ${
-            identifier.trim() && !lookup.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
+            identifier.trim() && !lookup.isPending ? 'bg-black' : 'bg-gray-300'
           }`}
         >
           {lookup.isPending ? (
@@ -67,17 +67,17 @@ export function MemberLookup({ label, onSelect }: MemberLookupProps) {
       </View>
 
       {lookup.isSuccess && found ? (
-        <View className="mt-2 flex-row items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3">
+        <View className="mt-2 flex-row items-center justify-between rounded-lg border border-gray-300 bg-gray-100 px-3 py-3">
           <View>
-            <Text className="text-base text-emerald-900">{found.displayName}</Text>
-            {found.phone ? <Text className="text-xs text-emerald-600">{found.phone}</Text> : null}
+            <Text className="text-base text-black">{found.displayName}</Text>
+            {found.phone ? <Text className="text-xs text-black">{found.phone}</Text> : null}
           </View>
           <Pressable
             onPress={() => handleConfirm(found)}
             accessibilityLabel={`Add ${found.displayName}`}
             accessibilityHint="Confirms this person"
           >
-            <Text className="font-bold text-emerald-700">Add</Text>
+            <Text className="font-bold text-black">Add</Text>
           </Pressable>
         </View>
       ) : null}

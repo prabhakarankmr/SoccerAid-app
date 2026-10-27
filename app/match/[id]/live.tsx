@@ -10,13 +10,13 @@ export default function MatchLive() {
         onPress={() => router.replace('/(tabs)')}
         accessibilityLabel="Back to Dashboard"
         accessibilityHint="Returns to the home screen"
-        className="self-start rounded-lg border border-emerald-300 px-4 py-2"
+        className="self-start rounded-lg border border-gray-300 px-4 py-2"
       >
-        <Text className="font-bold text-emerald-700">← Back to Dashboard</Text>
+        <Text className="font-bold text-black">← Back to Dashboard</Text>
       </Pressable>
 
-      <Text className="mt-6 text-2xl font-bold text-emerald-800">Lineup saved</Text>
-      <Text className="mt-1 text-emerald-600">
+      <Text className="mt-6 text-2xl font-bold text-black">Lineup saved</Text>
+      <Text className="mt-1 text-black">
         Match {id} is ready — live scoring lands per FRONTEND_INSTRUCTIONS.md §5.3.
       </Text>
     </View>

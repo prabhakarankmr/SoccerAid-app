@@ -67,12 +67,12 @@ export default function Login() {
         accessibilityIgnoresInvertColors
       />
 
-      <View className="w-full max-w-sm rounded-lg border border-emerald-200 bg-white/80 p-6">
-        <Text className="text-2xl font-bold text-emerald-800">Enter your phone number</Text>
-        <Text className="mt-1 text-emerald-600">A one-time code will be sent to verify it.</Text>
+      <View className="w-full max-w-sm rounded-lg border border-gray-300 bg-white/80 p-6">
+        <Text className="text-2xl font-bold text-black">Enter your phone number</Text>
+        <Text className="mt-1 text-black">A one-time code will be sent to verify it.</Text>
 
-        <View className="mt-6 flex-row items-center rounded-lg border border-emerald-300 bg-white px-3">
-          <Text className="text-base text-emerald-700">+91</Text>
+        <View className="mt-6 flex-row items-center rounded-lg border border-gray-300 bg-white px-3">
+          <Text className="text-base text-black">+91</Text>
           <TextInput
             value={digits}
             onChangeText={(text) => setDigits(text.replace(/\D/g, '').slice(0, 10))}
@@ -81,7 +81,7 @@ export default function Login() {
             placeholder="98765 43210"
             accessibilityLabel="Phone number"
             accessibilityHint="Enter your 10-digit Indian mobile number"
-            className="ml-2 flex-1 py-3 text-base text-emerald-900"
+            className="ml-2 flex-1 py-3 text-base text-black"
           />
         </View>
 
@@ -103,7 +103,7 @@ export default function Login() {
           accessibilityLabel="Send OTP"
           accessibilityHint="Sends a one-time verification code by SMS"
           className={`mt-6 items-center rounded-lg py-3 ${
-            isValid && !mutation.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
+            isValid && !mutation.isPending ? 'bg-black' : 'bg-gray-300'
           }`}
         >
           {mutation.isPending ? (

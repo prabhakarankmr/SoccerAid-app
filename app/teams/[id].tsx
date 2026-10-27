@@ -99,7 +99,7 @@ export default function TeamDetailScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#059669" />
+        <ActivityIndicator color="#000000" />
       </View>
     );
   }
@@ -112,7 +112,7 @@ export default function TeamDetailScreen() {
 
     return (
       <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-emerald-700">
+        <Text className="text-black">
           {notFound ? 'Team not found.' : 'Could not load this team — try again.'}
         </Text>
         {!notFound ? (
@@ -120,7 +120,7 @@ export default function TeamDetailScreen() {
             onPress={() => void refetch()}
             accessibilityLabel="Retry"
             accessibilityHint="Tries loading this team again"
-            className="mt-4 rounded-lg bg-emerald-600 px-4 py-2"
+            className="mt-4 rounded-lg bg-black px-4 py-2"
           >
             <Text className="font-bold text-white">Retry</Text>
           </Pressable>
@@ -129,9 +129,9 @@ export default function TeamDetailScreen() {
           onPress={() => router.replace('/(tabs)')}
           accessibilityLabel="Go to Home"
           accessibilityHint="Returns to the home screen"
-          className="mt-3 rounded-lg border border-emerald-300 px-4 py-2"
+          className="mt-3 rounded-lg border border-gray-300 px-4 py-2"
         >
-          <Text className="font-bold text-emerald-700">Go to Home</Text>
+          <Text className="font-bold text-black">Go to Home</Text>
         </Pressable>
       </View>
     );
@@ -149,9 +149,9 @@ export default function TeamDetailScreen() {
           onPress={() => router.back()}
           accessibilityLabel="Back to Teams"
           accessibilityHint="Returns to the teams list"
-          className="self-start rounded-lg border border-emerald-300 px-4 py-2"
+          className="self-start rounded-lg border border-gray-300 px-4 py-2"
         >
-          <Text className="font-bold text-emerald-700">← Back</Text>
+          <Text className="font-bold text-black">← Back</Text>
         </Pressable>
 
         <Pressable
@@ -161,28 +161,28 @@ export default function TeamDetailScreen() {
           className="mt-6 items-center"
         >
           <View
-            className="items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-100"
+            className="items-center justify-center rounded-full border-2 border-gray-300 bg-gray-100"
             style={{ width: 96, height: 96 }}
           >
-            <Text className="text-4xl font-bold text-emerald-700">
+            <Text className="text-4xl font-bold text-black">
               {team.name.trim().charAt(0).toUpperCase() || '?'}
             </Text>
           </View>
-          <Text className="mt-3 text-2xl font-bold text-emerald-800">{team.name}</Text>
-          <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-emerald-500">
+          <Text className="mt-3 text-2xl font-bold text-black">{team.name}</Text>
+          <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-black">
             View details &amp; QR
           </Text>
         </Pressable>
 
         <View className="mt-8 w-full max-w-sm">
           <View className="flex-row items-center justify-between">
-            <Text className="text-lg font-bold text-emerald-800">Players</Text>
+            <Text className="text-lg font-bold text-black">Players</Text>
             {isOwner && !isAddingPlayer ? (
               <Pressable
                 onPress={() => setIsAddingPlayer(true)}
                 accessibilityLabel="Add player"
                 accessibilityHint="Opens a search to add a player to this team"
-                className="flex-row items-center rounded-lg bg-emerald-600 px-3 py-2"
+                className="flex-row items-center rounded-lg bg-black px-3 py-2"
               >
                 <Plus color="#ffffff" size={16} />
                 <Text className="ml-1 text-sm font-bold text-white">Add</Text>
@@ -206,13 +206,13 @@ export default function TeamDetailScreen() {
               ) : null}
 
               <View className="mt-4 flex-row items-center gap-2">
-                <View className="h-px flex-1 bg-emerald-200" />
-                <Text className="text-xs font-bold text-emerald-400">OR</Text>
-                <View className="h-px flex-1 bg-emerald-200" />
+                <View className="h-px flex-1 bg-gray-300" />
+                <Text className="text-xs font-bold text-black">OR</Text>
+                <View className="h-px flex-1 bg-gray-300" />
               </View>
 
-              <Text className="mt-4 text-sm text-emerald-700">Add a guest player</Text>
-              <Text className="mt-0.5 text-xs text-emerald-500">
+              <Text className="mt-4 text-sm text-black">Add a guest player</Text>
+              <Text className="mt-0.5 text-xs text-black">
                 For someone without a SoccerAid account — just a name, no profile to maintain.
               </Text>
               <View className="mt-1 flex-row items-center gap-2">
@@ -226,7 +226,7 @@ export default function TeamDetailScreen() {
                     guestName.trim() && addGuestMutation.mutate(guestName.trim())
                   }
                   returnKeyType="done"
-                  className="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+                  className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
                 />
                 <Pressable
                   onPress={() => addGuestMutation.mutate(guestName.trim())}
@@ -234,9 +234,7 @@ export default function TeamDetailScreen() {
                   accessibilityLabel="Add guest player"
                   accessibilityHint="Adds this guest player to the team"
                   className={`items-center justify-center rounded-lg px-4 py-3 ${
-                    guestName.trim() && !addGuestMutation.isPending
-                      ? 'bg-emerald-600'
-                      : 'bg-emerald-300'
+                    guestName.trim() && !addGuestMutation.isPending ? 'bg-black' : 'bg-gray-300'
                   }`}
                 >
                   {addGuestMutation.isPending ? (
@@ -265,7 +263,7 @@ export default function TeamDetailScreen() {
                 accessibilityHint="Closes the player search"
                 className="mt-3 self-start"
               >
-                <Text className="text-sm text-emerald-600">Cancel</Text>
+                <Text className="text-sm text-black">Cancel</Text>
               </Pressable>
             </View>
           ) : null}
@@ -280,18 +278,18 @@ export default function TeamDetailScreen() {
           ) : null}
 
           {team.players.length === 0 ? (
-            <Text className="mt-3 text-emerald-500">No players added yet.</Text>
+            <Text className="mt-3 text-black">No players added yet.</Text>
           ) : (
             team.players.map((player) => (
               <View
                 key={player.id}
-                className="mt-2 flex-row items-center justify-between rounded-lg border border-emerald-200 bg-white px-3 py-3"
+                className="mt-2 flex-row items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-3"
               >
                 <View className="flex-row items-center gap-2">
-                  <Text className="text-emerald-900">{player.displayName}</Text>
+                  <Text className="text-black">{player.displayName}</Text>
                   {player.isCaptain ? (
-                    <View className="rounded-full bg-emerald-100 px-2 py-0.5">
-                      <Text className="text-xs font-bold text-emerald-700">Captain</Text>
+                    <View className="rounded-full bg-gray-100 px-2 py-0.5">
+                      <Text className="text-xs font-bold text-black">Captain</Text>
                     </View>
                   ) : null}
                   {player.isGuest ? (
@@ -334,29 +332,29 @@ export default function TeamDetailScreen() {
             className="max-h-[85%] rounded-t-3xl bg-white px-6 pb-10 pt-3"
           >
             <View className="items-center">
-              <View className="h-1.5 w-12 rounded-full bg-emerald-200" />
+              <View className="h-1.5 w-12 rounded-full bg-gray-300" />
             </View>
 
             <View className="mt-3 flex-row items-center justify-between">
-              <Text className="text-lg font-bold text-emerald-800">Team details</Text>
+              <Text className="text-lg font-bold text-black">Team details</Text>
               <Pressable
                 onPress={closeDetails}
                 accessibilityLabel="Close"
                 accessibilityHint="Closes team details"
               >
-                <X color="#047857" size={22} />
+                <X color="#000000" size={22} />
               </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View className="mt-4 items-center">
-                <View className="rounded-lg border border-emerald-200 bg-white p-4">
-                  <QRCode value={team.code} size={160} color="#065f46" backgroundColor="#ffffff" />
+                <View className="rounded-lg border border-gray-300 bg-white p-4">
+                  <QRCode value={team.code} size={160} color="#000000" backgroundColor="#ffffff" />
                 </View>
-                <Text className="mt-2 text-lg font-bold tracking-widest text-emerald-800">
+                <Text className="mt-2 text-lg font-bold tracking-widest text-black">
                   {team.code}
                 </Text>
-                <Text className="text-sm text-emerald-600">
+                <Text className="text-sm text-black">
                   Share this code or QR for opponents to find you
                 </Text>
               </View>
@@ -382,14 +380,14 @@ export default function TeamDetailScreen() {
                       accessibilityHint="Closes the captain search without changing it"
                       className="mt-2 self-start"
                     >
-                      <Text className="text-sm text-emerald-600">Cancel</Text>
+                      <Text className="text-sm text-black">Cancel</Text>
                     </Pressable>
                   </View>
                 ) : (
                   <View className="flex-row items-center justify-between">
                     <View>
-                      <Text className="text-sm text-emerald-700">Captain</Text>
-                      <Text className="mt-1 text-emerald-900">
+                      <Text className="text-sm text-black">Captain</Text>
+                      <Text className="mt-1 text-black">
                         {team.captain?.displayName ?? 'Not set'}
                       </Text>
                     </View>
@@ -399,7 +397,7 @@ export default function TeamDetailScreen() {
                         accessibilityLabel="Edit captain"
                         accessibilityHint="Opens a search to change the team captain"
                       >
-                        <Pencil color="#047857" size={18} />
+                        <Pencil color="#000000" size={18} />
                       </Pressable>
                     ) : null}
                   </View>
@@ -407,15 +405,15 @@ export default function TeamDetailScreen() {
 
                 {team.contactNumber ? (
                   <>
-                    <Text className="mt-4 text-sm text-emerald-700">Contact number</Text>
-                    <Text className="mt-1 text-emerald-900">{team.contactNumber}</Text>
+                    <Text className="mt-4 text-sm text-black">Contact number</Text>
+                    <Text className="mt-1 text-black">{team.contactNumber}</Text>
                   </>
                 ) : null}
 
                 {team.place ? (
                   <>
-                    <Text className="mt-4 text-sm text-emerald-700">Place</Text>
-                    <Text className="mt-1 text-emerald-900">{team.place}</Text>
+                    <Text className="mt-4 text-sm text-black">Place</Text>
+                    <Text className="mt-1 text-black">{team.place}</Text>
                   </>
                 ) : null}
               </View>

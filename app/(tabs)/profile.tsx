@@ -95,14 +95,14 @@ export default function Profile() {
               camera badge in edit mode signals where upload will go without pretending it
               works yet — tapping it would be a dead end, so it's not pressable. */}
             <View
-              className="items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-100"
+              className="items-center justify-center rounded-full border-2 border-gray-300 bg-gray-100"
               style={{ width: 88, height: 88 }}
             >
-              <Text className="text-3xl font-bold text-emerald-700">{avatarLetter}</Text>
+              <Text className="text-3xl font-bold text-black">{avatarLetter}</Text>
             </View>
             {isEditing ? (
               <View
-                className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-emerald-50 bg-emerald-600"
+                className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-gray-300 bg-black"
                 style={{ width: 28, height: 28 }}
               >
                 <Camera color="#ffffff" size={14} />
@@ -110,32 +110,32 @@ export default function Profile() {
             ) : null}
           </View>
           {isEditing ? (
-            <Text className="mt-2 text-xs text-emerald-600">Photo upload coming soon</Text>
+            <Text className="mt-2 text-xs text-black">Photo upload coming soon</Text>
           ) : (
             <>
-              <Text className="mt-3 text-xl font-bold text-emerald-800">
+              <Text className="mt-3 text-xl font-bold text-black">
                 {me?.name ?? 'Your profile'}
               </Text>
-              {me?.username ? <Text className="text-emerald-600">@{me.username}</Text> : null}
+              {me?.username ? <Text className="text-black">@{me.username}</Text> : null}
             </>
           )}
         </View>
 
         {isEditing ? (
           <View className="mt-6">
-            <Text className="text-sm text-emerald-700">Display name</Text>
+            <Text className="text-sm text-black">Display name</Text>
             <TextInput
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="e.g. Virat K"
               accessibilityLabel="Display name"
               accessibilityHint="The name other players will see"
-              className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+              className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
             />
 
-            <Text className="mt-4 text-sm text-emerald-700">Username</Text>
-            <View className="mt-1 flex-row items-center rounded-lg border border-emerald-300 bg-white px-3">
-              <Text className="text-base text-emerald-700">@</Text>
+            <Text className="mt-4 text-sm text-black">Username</Text>
+            <View className="mt-1 flex-row items-center rounded-lg border border-gray-300 bg-white px-3">
+              <Text className="text-base text-black">@</Text>
               <TextInput
                 value={username}
                 onChangeText={(text) =>
@@ -150,7 +150,7 @@ export default function Profile() {
                 autoCapitalize="none"
                 accessibilityLabel="Username"
                 accessibilityHint="3 to 20 characters: lowercase letters, numbers, underscores"
-                className="ml-1 flex-1 py-3 text-base text-emerald-900"
+                className="ml-1 flex-1 py-3 text-base text-black"
               />
             </View>
             {username.length > 0 && !isUsernameValid ? (
@@ -162,7 +162,7 @@ export default function Profile() {
               <Text className="mt-1 text-sm text-red-700">That username is already taken</Text>
             ) : null}
 
-            <Text className="mt-4 text-sm text-emerald-700">Bio</Text>
+            <Text className="mt-4 text-sm text-black">Bio</Text>
             <TextInput
               value={bio}
               onChangeText={(text) => setBio(text.slice(0, 160))}
@@ -172,18 +172,18 @@ export default function Profile() {
               maxLength={160}
               accessibilityLabel="Bio"
               accessibilityHint="Optional — a short description shown on your profile"
-              className="mt-1 h-20 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+              className="mt-1 h-20 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
               style={{ textAlignVertical: 'top' }}
             />
 
-            <Text className="mt-4 text-sm text-emerald-700">Preferred position</Text>
+            <Text className="mt-4 text-sm text-black">Preferred position</Text>
             <TextInput
               value={preferredPosition}
               onChangeText={setPreferredPosition}
               placeholder="e.g. Striker"
               accessibilityLabel="Preferred position"
               accessibilityHint="Optional — the position you usually play"
-              className="mt-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-emerald-900"
+              className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
             />
 
             {mutation.isError && !usernameTaken ? (
@@ -199,9 +199,9 @@ export default function Profile() {
                 disabled={mutation.isPending}
                 accessibilityLabel="Cancel editing"
                 accessibilityHint="Discards changes and returns to your profile"
-                className="flex-1 items-center rounded-lg border border-emerald-300 py-3"
+                className="flex-1 items-center rounded-lg border border-gray-300 py-3"
               >
-                <Text className="font-bold text-emerald-700">Cancel</Text>
+                <Text className="font-bold text-black">Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => mutation.mutate()}
@@ -209,7 +209,7 @@ export default function Profile() {
                 accessibilityLabel="Save profile"
                 accessibilityHint="Saves your changes"
                 className={`flex-1 items-center rounded-lg py-3 ${
-                  isValid && !mutation.isPending ? 'bg-emerald-600' : 'bg-emerald-300'
+                  isValid && !mutation.isPending ? 'bg-black' : 'bg-gray-300'
                 }`}
               >
                 {mutation.isPending ? (
@@ -222,17 +222,17 @@ export default function Profile() {
           </View>
         ) : (
           <>
-            <View className="mt-6 rounded-lg border border-emerald-200 bg-white/80 p-4">
-              <Text className="text-sm text-emerald-700">Bio</Text>
-              <Text className="mt-1 text-emerald-900">{me?.bio ?? 'No bio yet'}</Text>
+            <View className="mt-6 rounded-lg border border-gray-300 bg-white/80 p-4">
+              <Text className="text-sm text-black">Bio</Text>
+              <Text className="mt-1 text-black">{me?.bio ?? 'No bio yet'}</Text>
 
-              <Text className="mt-4 text-sm text-emerald-700">Phone</Text>
-              <Text className="mt-1 text-emerald-900">{me?.phone}</Text>
+              <Text className="mt-4 text-sm text-black">Phone</Text>
+              <Text className="mt-1 text-black">{me?.phone}</Text>
 
               {me?.player?.preferredPosition ? (
                 <>
-                  <Text className="mt-4 text-sm text-emerald-700">Preferred position</Text>
-                  <Text className="mt-1 text-emerald-900">{me.player.preferredPosition}</Text>
+                  <Text className="mt-4 text-sm text-black">Preferred position</Text>
+                  <Text className="mt-1 text-black">{me.player.preferredPosition}</Text>
                 </>
               ) : null}
             </View>
@@ -241,7 +241,7 @@ export default function Profile() {
               onPress={startEditing}
               accessibilityLabel="Edit profile"
               accessibilityHint="Opens the profile fields for editing"
-              className="mt-6 flex-row items-center justify-center rounded-lg bg-emerald-600 px-5 py-4"
+              className="mt-6 flex-row items-center justify-center rounded-lg bg-black px-5 py-4"
             >
               <Pencil color="#ffffff" size={18} />
               <Text className="ml-2 text-base font-bold text-white">Edit Profile</Text>

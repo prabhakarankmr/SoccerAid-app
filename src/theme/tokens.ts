@@ -15,13 +15,17 @@ export const pitchGradient = {
   to: '#4ade80', // green-400
 } as const;
 
+// Team A = home (right half of the pitch), Team B = away (left half). Colors per the
+// authoritative reference screenshots (2026-10-27, superseding an earlier single mockup that
+// had Team A blue/Team B green) — Team A orange, Team B blue; nothing used these before this
+// pitch component, so no migration concern either time.
 export const teamA = {
-  fill: '#059669', // emerald-600
-  border: '#047857', // emerald-700
-  chipBg: '#d1fae5', // emerald-100
-  chipText: '#065f46', // emerald-800
-  emptySlotBorder: '#34d399', // emerald-400
-  emptySlotBg: '#d1fae5', // emerald-100
+  fill: '#f97316', // orange-500
+  border: '#ea580c', // orange-600
+  chipBg: '#ffedd5', // orange-100
+  chipText: '#9a3412', // orange-800
+  emptySlotBorder: '#fb923c', // orange-400
+  emptySlotBg: '#ffedd5', // orange-100
 } as const;
 
 export const teamB = {
@@ -33,9 +37,11 @@ export const teamB = {
   emptySlotBg: '#dbeafe', // blue-100
 } as const;
 
+// Neutral, not team-colored — orange is now Team A's color, so the GK marker needs to read as
+// "goalkeeper" regardless of which side it's on, not clash with Team A's own tokens.
 export const goalkeeper = {
-  fill: '#f97316', // orange-500
-  border: '#ea580c', // orange-600
+  fill: '#4b5563', // gray-600
+  border: '#374151', // gray-700
 } as const;
 
 export const possession = {
