@@ -24,9 +24,11 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { apiClient, ApiError } from '../../../src/api/client';
 import { matchKeys } from '../../../src/api/queryKeys';
 import { FootballPitch, PitchSide, PitchSlot } from '../../../src/components/pitch/FootballPitch';
+import { Toast, useToast } from '../../../src/components/ui/Toast';
 import { FormationSlot, slotsFor, useFormations } from '../../../src/hooks/useMeta';
 import {
   LineupPlayerInput,
+  MatchStatus,
   useMatch,
   useSetLineups,
   useUpdateMatch,
@@ -275,6 +277,86 @@ function RosterPanel({
   );
 }
 
+function lockedStatusLabel(status: MatchStatus): string {
+  switch (status) {
+    case 'LIVE':
+      return 'Live now';
+    case 'PAUSED':
+      return 'Paused';
+    case 'HALF_TIME':
+      return 'Half-time';
+    case 'FULL_TIME':
+      return 'Full-time — ended';
+    default:
+      return 'In progress';
+  }
+}
+
+// Shown instead of the editable pitch once a match has kicked off — lineups can't be changed
+// after that (backend rejects with 422 INVALID_STATUS_TRANSITION), and the old behavior here
+// (rendering the full editable UI regardless) was a confusing dead end. Also the "back button
+// to go to player setup ... toast a message warning" ask (user call): the toast fires on arrival
+// here however the user got here (live screen's "Setup" button, browser back, a stale tab) —
+// more robust than only firing on one specific button press.
+function LockedMatchView({
+  matchId,
+  homeTeamName,
+  awayTeamName,
+  status,
+}: {
+  matchId: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  status: MatchStatus;
+}) {
+  const { message, showToast } = useToast();
+
+  useEffect(() => {
+    showToast('This match is still live — leaving here doesn’t pause or end it.');
+    // Only ever meant to fire once, on arrival — showToast's identity is stable (useState
+    // setter) but including it would be misleading about intent, so it's deliberately omitted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <View className="flex-1 bg-white">
+      <Toast message={message} />
+      <ScrollView
+        className="flex-1 bg-white"
+        contentContainerClassName="items-center px-6 pb-16 pt-20"
+      >
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityLabel="Back"
+          accessibilityHint="Returns to match setup"
+          className="self-start rounded-lg border border-gray-300 px-4 py-2"
+        >
+          <Text className="font-bold text-black">← Back</Text>
+        </Pressable>
+
+        <Text className="mt-6 text-center text-2xl font-bold text-black">
+          {homeTeamName} vs {awayTeamName}
+        </Text>
+        <Text className="mt-1 text-sm font-bold uppercase tracking-wide text-gray-500">
+          {lockedStatusLabel(status)}
+        </Text>
+        <Text className="mt-4 text-center text-black">
+          This match has already kicked off, so the lineup and formation are locked in.
+        </Text>
+
+        <Pressable
+          onPress={() => router.push({ pathname: '/match/[id]/live', params: { id: matchId } })}
+          accessibilityLabel="Go to Live Match"
+          accessibilityHint="Opens the live match screen"
+          className="mt-6 items-center rounded-lg bg-black px-8 py-4"
+        >
+          <Text className="text-base font-bold text-white">Go to Live Match</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function MatchLineup() {
   const { id, homePlayerIds, awayPlayerIds } = useLocalSearchParams<{
     id: string;
@@ -511,6 +593,17 @@ export default function MatchLineup() {
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator color="#000000" />
       </View>
+    );
+  }
+
+  if (match.status !== 'SCHEDULED' && match.status !== 'LINEUPS_SET') {
+    return (
+      <LockedMatchView
+        matchId={match.id}
+        homeTeamName={homeTeam.name}
+        awayTeamName={awayTeam.name}
+        status={match.status}
+      />
     );
   }
 

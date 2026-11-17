@@ -1,12 +1,30 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import { playerKeys } from '../api/queryKeys';
 
 export interface PlayerSummary {
   id: string;
   displayName: string;
   phone: string | null;
   preferredPosition: string | null;
+}
+
+export interface PlayerStats {
+  playerId: string;
+  matchesPlayed: number;
+  goals: number;
+  assists: number;
+  saves: number;
+  fouls: number;
+}
+
+export function usePlayerStats(playerId: string | undefined) {
+  return useQuery({
+    queryKey: playerKeys.stats(playerId ?? ''),
+    queryFn: () => apiClient.get<PlayerStats>(`/players/${playerId ?? ''}/stats`),
+    enabled: Boolean(playerId),
+  });
 }
 
 /**

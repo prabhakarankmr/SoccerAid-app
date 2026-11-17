@@ -15,4 +15,9 @@ export const metaKeys = {
 
 export const matchKeys = {
   detail: (id: string) => ['matches', 'detail', id] as const,
+  list: (status: string) => ['matches', 'list', status] as const,
+};
+
+export const playerKeys = {
+  stats: (id: string) => ['players', 'stats', id] as const,
 };

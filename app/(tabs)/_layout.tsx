@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Tabs } from 'expo-router';
 import House from 'lucide-react-native/icons/house';
+import Radio from 'lucide-react-native/icons/radio';
 import User from 'lucide-react-native/icons/user';
 import Users from 'lucide-react-native/icons/users';
 import { useEffect, useState } from 'react';
@@ -82,6 +83,13 @@ export default function TabsLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => <House color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="matches"
+        options={{
+          title: 'Matches',
+          tabBarIcon: ({ color, size }) => <Radio color={color} size={size} />,
         }}
       />
       <Tabs.Screen

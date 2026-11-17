@@ -91,6 +91,21 @@ export interface MatchDetail {
   lineups: MatchLineupPlayer[];
   state: MatchState | null;
   events: MatchEvent[];
+  // Whether the signed-in user owns either team — false means a viewer: matches are publicly
+  // spectatable (anyone can GET one), but only an owner gets scoring controls on the live screen.
+  canScore: boolean;
+}
+
+// Lightweight — backs the "Matches" tab's list (any live match, from any user). No
+// lineups/events/canScore; just enough for a card.
+export interface MatchSummary {
+  id: string;
+  homeTeam: MatchTeamRef;
+  awayTeam: MatchTeamRef;
+  playersPerSide: number;
+  status: MatchStatus;
+  homeScore: number;
+  awayScore: number;
 }
 
 export interface CreateMatchInput {
@@ -115,6 +130,16 @@ export function useMatch(id: string | undefined) {
     queryKey: matchKeys.detail(id ?? ''),
     queryFn: () => apiClient.get<MatchDetail>(`/matches/${id ?? ''}`),
     enabled: Boolean(id),
+  });
+}
+
+// Public discovery list for the "Matches" tab (§5.8) — defaults to LIVE, the only thing worth
+// spectating; any authenticated user, not scoped to their own teams.
+export function useMatchesList(status: MatchStatus = 'LIVE') {
+  return useQuery({
+    queryKey: matchKeys.list(status),
+    queryFn: () => apiClient.get<MatchSummary[]>(`/matches?status=${status}`),
+    refetchInterval: 15_000,
   });
 }
 

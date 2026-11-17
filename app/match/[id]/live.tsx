@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import Clock from 'lucide-react-native/icons/clock';
+import Eye from 'lucide-react-native/icons/eye';
 import Flag from 'lucide-react-native/icons/flag';
 import GoalIcon from 'lucide-react-native/icons/goal';
 import Hand from 'lucide-react-native/icons/hand';
@@ -363,18 +364,19 @@ export default function MatchLive() {
   }
 
   const canEndMatch =
-    match.status === 'LIVE' || match.status === 'PAUSED' || match.status === 'HALF_TIME';
+    match.canScore &&
+    (match.status === 'LIVE' || match.status === 'PAUSED' || match.status === 'HALF_TIME');
 
   const header = (
     <View className="flex-row items-center justify-between border-b border-gray-200 px-4 pb-3 pt-14">
       <Pressable
-        onPress={() => router.replace('/(tabs)')}
-        accessibilityLabel="Back to Dashboard"
-        accessibilityHint="Returns to the home screen"
+        onPress={() => router.push({ pathname: '/match/[id]/lineup', params: { id: match.id } })}
+        accessibilityLabel="Back to Setup"
+        accessibilityHint="Returns to player setup — the match keeps running, this doesn't pause or end it"
         className="flex-row items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1.5"
       >
         <ArrowLeft color="#000000" size={16} />
-        <Text className="text-xs font-bold text-black">Dashboard</Text>
+        <Text className="text-xs font-bold text-black">Setup</Text>
       </Pressable>
       <Text className="text-sm font-bold uppercase tracking-wide text-gray-500">Live Match</Text>
       {canEndMatch ? (
@@ -422,35 +424,41 @@ export default function MatchLive() {
           <Text className="text-center text-lg font-bold text-black">
             {match.homeTeam.name} vs {match.awayTeam.name}
           </Text>
-          <Text className="mt-1 text-center text-black">Ready when you are.</Text>
-          {startMatch.isError ? (
-            <Text className="mt-2 text-center text-xs text-red-700">
-              Could not start the match — try again
-            </Text>
+          <Text className="mt-1 text-center text-black">
+            {match.canScore ? 'Ready when you are.' : 'Waiting for the match to kick off.'}
+          </Text>
+          {match.canScore ? (
+            <>
+              {startMatch.isError ? (
+                <Text className="mt-2 text-center text-xs text-red-700">
+                  Could not start the match — try again
+                </Text>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  startMatch.mutate(undefined, {
+                    onSuccess: applyUpdate,
+                    onError: (startError) => {
+                      console.error('POST /matches/:id/start failed:', startError);
+                    },
+                  });
+                }}
+                disabled={startMatch.isPending}
+                accessibilityLabel="Kick Off"
+                accessibilityHint="Starts the match clock now"
+                className="mt-6 flex-row items-center gap-2 rounded-lg bg-black px-8 py-4"
+              >
+                {startMatch.isPending ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <>
+                    <Play color="#ffffff" size={18} />
+                    <Text className="text-base font-bold text-white">Kick Off</Text>
+                  </>
+                )}
+              </Pressable>
+            </>
           ) : null}
-          <Pressable
-            onPress={() => {
-              startMatch.mutate(undefined, {
-                onSuccess: applyUpdate,
-                onError: (startError) => {
-                  console.error('POST /matches/:id/start failed:', startError);
-                },
-              });
-            }}
-            disabled={startMatch.isPending}
-            accessibilityLabel="Kick Off"
-            accessibilityHint="Starts the match clock now"
-            className="mt-6 flex-row items-center gap-2 rounded-lg bg-black px-8 py-4"
-          >
-            {startMatch.isPending ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <>
-                <Play color="#ffffff" size={18} />
-                <Text className="text-base font-bold text-white">Kick Off</Text>
-              </>
-            )}
-          </Pressable>
         </View>
       </View>
     );
@@ -576,34 +584,38 @@ export default function MatchLive() {
           <Text className="mt-2 text-center text-sm font-bold uppercase tracking-wide text-gray-500">
             Half Time
           </Text>
-          {startSecondHalf.isError ? (
-            <Text className="mt-2 text-center text-xs text-red-700">
-              Could not start the second half — try again
-            </Text>
+          {match.canScore ? (
+            <>
+              {startSecondHalf.isError ? (
+                <Text className="mt-2 text-center text-xs text-red-700">
+                  Could not start the second half — try again
+                </Text>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  startSecondHalf.mutate(undefined, {
+                    onSuccess: applyUpdate,
+                    onError: (startError) => {
+                      console.error('POST /matches/:id/second-half failed:', startError);
+                    },
+                  });
+                }}
+                disabled={startSecondHalf.isPending}
+                accessibilityLabel="Kick Off Second Half"
+                accessibilityHint="Starts the second half's clock now"
+                className="mx-auto mt-4 flex-row items-center gap-2 rounded-lg bg-black px-8 py-4"
+              >
+                {startSecondHalf.isPending ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <>
+                    <Play color="#ffffff" size={18} />
+                    <Text className="text-base font-bold text-white">Kick Off 2nd Half</Text>
+                  </>
+                )}
+              </Pressable>
+            </>
           ) : null}
-          <Pressable
-            onPress={() => {
-              startSecondHalf.mutate(undefined, {
-                onSuccess: applyUpdate,
-                onError: (startError) => {
-                  console.error('POST /matches/:id/second-half failed:', startError);
-                },
-              });
-            }}
-            disabled={startSecondHalf.isPending}
-            accessibilityLabel="Kick Off Second Half"
-            accessibilityHint="Starts the second half's clock now"
-            className="mx-auto mt-4 flex-row items-center gap-2 rounded-lg bg-black px-8 py-4"
-          >
-            {startSecondHalf.isPending ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <>
-                <Play color="#ffffff" size={18} />
-                <Text className="text-base font-bold text-white">Kick Off 2nd Half</Text>
-              </>
-            )}
-          </Pressable>
           {commentary}
         </ScrollView>
         {endMatchModal}
@@ -695,91 +707,111 @@ export default function MatchLive() {
             +{Math.round(state.addedTimeSec / 60)} min added
           </Text>
         ) : null}
-        {timeUp ? (
-          <Text className="mt-1 text-center text-sm font-bold text-red-700">
-            Time&apos;s up — end {state.period === 'FIRST_HALF' ? 'the first half' : 'the match'}{' '}
-            when ready
-          </Text>
-        ) : null}
-
-        <View className="mt-3 flex-row gap-2">
-          <Pressable
-            onPress={() => {
-              const mutation = isPaused ? resumeMatch : pauseMatch;
-              mutation.mutate(undefined, {
-                onSuccess: applyUpdate,
-                onError: (toggleError) => {
-                  console.error('Pause/resume failed:', toggleError);
-                },
-              });
-            }}
-            disabled={pauseMatch.isPending || resumeMatch.isPending}
-            accessibilityLabel={isPaused ? 'Resume' : 'Pause'}
-            accessibilityHint={isPaused ? 'Resumes the clock' : 'Pauses the clock'}
-            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2.5"
-          >
-            {isPaused ? <Play color="#000000" size={16} /> : <Pause color="#000000" size={16} />}
-            <Text className="text-xs font-bold text-black">{isPaused ? 'Resume' : 'Pause'}</Text>
-          </Pressable>
-          {state.period === 'FIRST_HALF' ? (
-            <Pressable
-              onPress={() => {
-                endFirstHalf.mutate(undefined, {
-                  onSuccess: applyUpdate,
-                  onError: (htError) => {
-                    console.error('POST /matches/:id/half-time failed:', htError);
-                  },
-                });
-              }}
-              disabled={endFirstHalf.isPending}
-              accessibilityLabel="End First Half"
-              accessibilityHint="Ends the first half and moves to half-time"
-              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-lg py-2.5 ${
-                timeUp ? 'bg-black' : 'border border-gray-300'
-              }`}
-            >
-              <SkipForward color={timeUp ? '#ffffff' : '#000000'} size={16} />
-              <Text className={`text-xs font-bold ${timeUp ? 'text-white' : 'text-black'}`}>
-                End 1st Half
+        {match.canScore ? (
+          <>
+            {timeUp ? (
+              <Text className="mt-1 text-center text-sm font-bold text-red-700">
+                Time&apos;s up — end{' '}
+                {state.period === 'FIRST_HALF' ? 'the first half' : 'the match'} when ready
               </Text>
-            </Pressable>
-          ) : null}
-        </View>
+            ) : null}
 
-        <View className="mt-2 flex-row flex-wrap gap-2">
-          {ADD_TIME_PRESETS_MIN.map((minutes) => (
-            <Pressable
-              key={minutes}
-              onPress={() => {
-                addTime.mutate(minutes * 60, {
-                  onSuccess: applyUpdate,
-                  onError: (addTimeError) => {
-                    console.error('POST /matches/:id/add-time failed:', addTimeError);
-                  },
-                });
-              }}
-              disabled={addTime.isPending}
-              accessibilityLabel={`Add ${String(minutes)} minute${minutes > 1 ? 's' : ''}`}
-              accessibilityHint="Adds stoppage time to this half"
-              className="flex-row items-center gap-1 rounded-full border border-gray-300 px-3 py-1.5"
-            >
-              <Plus color="#000000" size={12} />
-              <Text className="text-xs font-bold text-black">{minutes} min</Text>
-            </Pressable>
-          ))}
-        </View>
+            <View className="mt-3 flex-row gap-2">
+              <Pressable
+                onPress={() => {
+                  const mutation = isPaused ? resumeMatch : pauseMatch;
+                  mutation.mutate(undefined, {
+                    onSuccess: applyUpdate,
+                    onError: (toggleError) => {
+                      console.error('Pause/resume failed:', toggleError);
+                    },
+                  });
+                }}
+                disabled={pauseMatch.isPending || resumeMatch.isPending}
+                accessibilityLabel={isPaused ? 'Resume' : 'Pause'}
+                accessibilityHint={isPaused ? 'Resumes the clock' : 'Pauses the clock'}
+                className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2.5"
+              >
+                {isPaused ? (
+                  <Play color="#000000" size={16} />
+                ) : (
+                  <Pause color="#000000" size={16} />
+                )}
+                <Text className="text-xs font-bold text-black">
+                  {isPaused ? 'Resume' : 'Pause'}
+                </Text>
+              </Pressable>
+              {state.period === 'FIRST_HALF' ? (
+                <Pressable
+                  onPress={() => {
+                    endFirstHalf.mutate(undefined, {
+                      onSuccess: applyUpdate,
+                      onError: (htError) => {
+                        console.error('POST /matches/:id/half-time failed:', htError);
+                      },
+                    });
+                  }}
+                  disabled={endFirstHalf.isPending}
+                  accessibilityLabel="End First Half"
+                  accessibilityHint="Ends the first half and moves to half-time"
+                  className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-lg py-2.5 ${
+                    timeUp ? 'bg-black' : 'border border-gray-300'
+                  }`}
+                >
+                  <SkipForward color={timeUp ? '#ffffff' : '#000000'} size={16} />
+                  <Text className={`text-xs font-bold ${timeUp ? 'text-white' : 'text-black'}`}>
+                    End 1st Half
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
 
-        {pauseMatch.isError || resumeMatch.isError || endFirstHalf.isError || addTime.isError ? (
-          <Text className="mt-2 text-center text-xs text-red-700">
-            Could not do that — try again
-          </Text>
-        ) : null}
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {ADD_TIME_PRESETS_MIN.map((minutes) => (
+                <Pressable
+                  key={minutes}
+                  onPress={() => {
+                    addTime.mutate(minutes * 60, {
+                      onSuccess: applyUpdate,
+                      onError: (addTimeError) => {
+                        console.error('POST /matches/:id/add-time failed:', addTimeError);
+                      },
+                    });
+                  }}
+                  disabled={addTime.isPending}
+                  accessibilityLabel={`Add ${String(minutes)} minute${minutes > 1 ? 's' : ''}`}
+                  accessibilityHint="Adds stoppage time to this half"
+                  className="flex-row items-center gap-1 rounded-full border border-gray-300 px-3 py-1.5"
+                >
+                  <Plus color="#000000" size={12} />
+                  <Text className="text-xs font-bold text-black">{minutes} min</Text>
+                </Pressable>
+              ))}
+            </View>
 
-        {recordEvent.isError ? (
-          <Text className="mt-2 text-center text-xs text-red-700">
-            Could not record that — try again
-          </Text>
-        ) : null}
+            {pauseMatch.isError ||
+            resumeMatch.isError ||
+            endFirstHalf.isError ||
+            addTime.isError ? (
+              <Text className="mt-2 text-center text-xs text-red-700">
+                Could not do that — try again
+              </Text>
+            ) : null}
+
+            {recordEvent.isError ? (
+              <Text className="mt-2 text-center text-xs text-red-700">
+                Could not record that — try again
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <View className="mt-3 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2.5">
+            <Eye color="#6b7280" size={16} />
+            <Text className="text-xs font-bold text-gray-500">
+              Spectating — you&apos;re viewing this match
+            </Text>
+          </View>
+        )}
 
         <View className="mt-4">
           <FootballPitch
@@ -791,42 +823,46 @@ export default function MatchLive() {
           />
         </View>
 
-        <View className="mt-4 flex-row gap-2">
-          <Pressable
-            onPress={() => setActiveModal({ kind: 'goal-scorer' })}
-            disabled={recordEvent.isPending || isPaused}
-            accessibilityLabel="Record a goal"
-            accessibilityHint="Opens options to pick who scored and who assisted"
-            className={`flex-1 items-center rounded-lg py-3 ${isPaused ? 'bg-gray-300' : 'bg-black'}`}
-          >
-            <GoalIcon color="#ffffff" size={18} />
-            <Text className="mt-1 text-xs font-bold text-white">Goal</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setActiveModal({ kind: 'save' })}
-            disabled={recordEvent.isPending || isPaused}
-            accessibilityLabel="Record a goalkeeper save"
-            accessibilityHint="Opens options to pick which goalkeeper made the save"
-            className="flex-1 items-center rounded-lg border border-gray-300 py-3"
-          >
-            <Hand color="#000000" size={18} />
-            <Text className="mt-1 text-xs font-bold text-black">Save</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setActiveModal({ kind: 'foul' })}
-            disabled={recordEvent.isPending || isPaused}
-            accessibilityLabel="Record a foul"
-            accessibilityHint="Opens options to pick who committed the foul, from either team"
-            className="flex-1 items-center rounded-lg border border-gray-300 py-3"
-          >
-            <Flag color="#000000" size={18} />
-            <Text className="mt-1 text-xs font-bold text-black">Foul</Text>
-          </Pressable>
-        </View>
-        {isPaused ? (
-          <Text className="mt-2 text-center text-xs text-gray-500">
-            Paused — resume to record goals, saves or fouls
-          </Text>
+        {match.canScore ? (
+          <>
+            <View className="mt-4 flex-row gap-2">
+              <Pressable
+                onPress={() => setActiveModal({ kind: 'goal-scorer' })}
+                disabled={recordEvent.isPending || isPaused}
+                accessibilityLabel="Record a goal"
+                accessibilityHint="Opens options to pick who scored and who assisted"
+                className={`flex-1 items-center rounded-lg py-3 ${isPaused ? 'bg-gray-300' : 'bg-black'}`}
+              >
+                <GoalIcon color="#ffffff" size={18} />
+                <Text className="mt-1 text-xs font-bold text-white">Goal</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setActiveModal({ kind: 'save' })}
+                disabled={recordEvent.isPending || isPaused}
+                accessibilityLabel="Record a goalkeeper save"
+                accessibilityHint="Opens options to pick which goalkeeper made the save"
+                className="flex-1 items-center rounded-lg border border-gray-300 py-3"
+              >
+                <Hand color="#000000" size={18} />
+                <Text className="mt-1 text-xs font-bold text-black">Save</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setActiveModal({ kind: 'foul' })}
+                disabled={recordEvent.isPending || isPaused}
+                accessibilityLabel="Record a foul"
+                accessibilityHint="Opens options to pick who committed the foul, from either team"
+                className="flex-1 items-center rounded-lg border border-gray-300 py-3"
+              >
+                <Flag color="#000000" size={18} />
+                <Text className="mt-1 text-xs font-bold text-black">Foul</Text>
+              </Pressable>
+            </View>
+            {isPaused ? (
+              <Text className="mt-2 text-center text-xs text-gray-500">
+                Paused — resume to record goals, saves or fouls
+              </Text>
+            ) : null}
+          </>
         ) : null}
 
         {commentary}

@@ -18,12 +18,14 @@ import {
 import { ApiError, apiClient } from '../../src/api/client';
 import { meKeys } from '../../src/api/queryKeys';
 import { Me, useMe } from '../../src/hooks/useMe';
+import { usePlayerStats } from '../../src/hooks/usePlayers';
 import { useAuthStore } from '../../src/stores/authStore';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 export default function Profile() {
   const { data: me, isPending: isMePending } = useMe();
+  const stats = usePlayerStats(me?.player?.id);
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
 
@@ -247,6 +249,36 @@ export default function Profile() {
                 </>
               ) : null}
             </View>
+
+            {me?.player ? (
+              <View className="mt-6">
+                <Text className="text-lg font-bold text-black">My Stats</Text>
+                {stats.isLoading ? (
+                  <ActivityIndicator className="mt-4" color="#000000" />
+                ) : (
+                  <View className="mt-3 flex-row flex-wrap gap-3">
+                    {[
+                      { label: 'Played', value: stats.data?.matchesPlayed ?? 0 },
+                      { label: 'Goals', value: stats.data?.goals ?? 0 },
+                      { label: 'Assists', value: stats.data?.assists ?? 0 },
+                      { label: 'Saves', value: stats.data?.saves ?? 0 },
+                      { label: 'Fouls', value: stats.data?.fouls ?? 0 },
+                    ].map((tile) => (
+                      <View
+                        key={tile.label}
+                        className="items-center rounded-lg border border-gray-300 bg-white px-4 py-3"
+                        style={{ minWidth: 88 }}
+                      >
+                        <Text className="text-2xl font-bold text-black">{tile.value}</Text>
+                        <Text className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                          {tile.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null}
 
             <Pressable
               onPress={startEditing}
