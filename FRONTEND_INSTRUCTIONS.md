@@ -308,10 +308,15 @@ the slot layout. Available players per side start from `homePlayerIds`/`awayPlay
 params (who was marked "playing" on `TeamPicker`'s roster step, §5.1) — falls back to the full
 roster if those are absent.
 
-- **Start Match** sits near the top (under the subtitle), not at the bottom — matches the
-  reference, and stays reachable without scrolling past the roster panel/pitch. Disabled until
-  both sides have exactly `playersPerSide` filled slots (which, since there are exactly that many
-  slots per side, also guarantees exactly one goalkeeper each — no separate GK check needed).
+- **"Continue to Match"** (renamed from "Start Match" 2026-10-27 — see §5.3's note on kickoff
+  moving to the live screen) sits near the top (under the subtitle), not at the bottom — matches
+  the reference, and stays reachable without scrolling past the roster panel/pitch. Disabled
+  until both sides have exactly `playersPerSide` filled slots (which, since there are exactly
+  that many slots per side, also guarantees exactly one goalkeeper each — no separate GK check
+  needed). Only saves the lineup (`PUT /matches/:id/lineups`, status → `LINEUPS_SET`) and
+  navigates to `match/[id]/live.tsx` — it does **not** call `POST /matches/:id/start` anymore;
+  kickoff itself is a separate, explicit "Kick Off" button on that screen (user call: "kick off
+  should be selected by the user").
 - **"Manage/Hide Team Rosters"** collapsible section (collapsed by default), two columns, one
   per side: team pill + "assigned/needed" count (e.g. "5/6"), every available player as a row
   with either a **GK** badge (if they currently hold the goalkeeper slot) or a tappable target
@@ -338,7 +343,7 @@ roster if those are absent.
   `expo-screen-orientation` on native (`ScreenOrientation.lockAsync`, always restored to
   portrait on unmount so leaving the screen never strands the rest of the app rotated) and, since
   orientation locking is unreliable outside fullscreen on web, swaps to a dedicated chrome-free
-  layout there and on native alike — header/timer/roster/Start Match hidden, just the pitch plus
+  layout there and on native alike — header/timer/roster/Continue to Match hidden, just the pitch plus
   an Exit-Landscape/Reset toolbar, maximizing drag room. `FootballPitch` already measures its own
   container via `onLayout` and sizes off `width: '100%'`, so it picks up the wider space with no
   changes of its own.
@@ -376,31 +381,67 @@ browser; that needs eyes-on testing.
 
 ### 5.3 Live Match — `match/[id]/live.tsx` (ref: step `match`) — most important screen
 
-**Built 2026-10-27** — user call ("if i start the match it shuld[show] the turf ui and along
-with action button to mark goal, who scored who assisted, goal save from goal, timer running,
-commentory running below, foul it should common for both") replaced the 2026-10-26 stub with a
-real, deliberately **scoped-down** slice of the full target design further below — goal (with
-scorer + optional assist), goalkeeper save, foul (one shared control for either team, not two),
-a running clock, and a commentary feed. Needed a genuinely new backend capability:
-`POST /matches/:id/start` (kickoff) and a scoped `POST /matches/:id/events`
-(`BACKEND_INSTRUCTIONS.md` §7.2) — built directly in `MatchesModule` rather than a separate
-match-events/match-engine split (see that doc's §5 note on why).
+**Built 2026-10-27, in two passes.** First pass (user call: "if i start the match it
+shuld[show] the turf ui and along with action button to mark goal, who scored who assisted,
+goal save from goal, timer running, commentory running below, foul it should common for both")
+replaced the 2026-10-26 stub with goal/save/foul recording, a running clock, and a commentary
+feed. Second pass, same day (user call: "i need option edit timer, pause end timer which is end
+match, edit time, th time we selected, only that much the match should last after that it
+should be ended, and allow add extra time and cleary howmuch time for half time and full time,
+kick off should be selected by the user") replaced the single auto-started clock with a real
+two-half state machine — kickoff, pause/resume, stoppage time, confirmed half-time, second-half
+kickoff, and a manual end. Two decisions in that second pass were asked of the user rather than
+guessed (`AskUserQuestion`, since either answer meant a materially different state machine):
+a half ending is **user-confirmed, not automatic** (the clock keeps running past the nominal
+limit until the scorer taps to end it — closer to how a ref's whistle actually works than a
+strict cutoff), and "extra time" means **stoppage/added time within a half**, not knockout-style
+extra-time periods after a draw (those stay unmodeled). Backend companion
+(`BACKEND_INSTRUCTIONS.md` §7.2/§5): `POST /matches/:id/start`/`/pause`/`/resume`/`/add-time`/
+`/half-time`/`/second-half`/`/end` plus a scoped `/events` (GOAL/SHOT_SAVED/FOUL) — all built
+directly in `MatchesModule` rather than a separate match-events/match-engine split (see that
+doc's §5 note on why).
 
 - **Header** is a pinned row above the scroll area, not part of the scrollable content — icon
   back button ("← Dashboard", `ArrowLeft`) always stays reachable regardless of how long the
   commentary feed grows, instead of scrolling away like the old stub's plain outline button did.
-- **Scoreboard + timer**: team names either side of `homeScore - awayScore`
-  (`MatchState`, §4), a `Clock` icon + `mm:ss` underneath. The clock is server-authoritative
-  (`state.clockStartedAt`) — the client only re-renders once a second (`setInterval` inside a
-  `useEffect`, writing `Date.now()` into state rather than reading it during render, which the
-  React Compiler ESLint rules flag as impure) to recompute elapsed time, never sends its own
-  timestamp.
-- **The pitch**: `pitch/FootballPitch` (§7) reused **read-only** — new `interactive?: boolean`
-  prop (default `true`, so `match/[id]/lineup.tsx`'s two call sites needed no changes) skips
-  building any `GestureDetector`/pan/tap gesture at all on `PlayerToken` when `false`, not just
-  wiring no-op handlers — so a mis-tap during a live match can't reposition the saved lineup.
-  Positions come straight from `match.lineups`' `slotIndex` (fixed at kickoff), not from any
-  local override state.
+  Once kicked off (`LIVE`/`PAUSED`/`HALF_TIME`), the header's right slot is a small red **"End"**
+  link instead of a spacer — always reachable regardless of which period-specific screen below
+  is showing, since ending the match early is meaningful at any point, not just during the
+  second half.
+- **Per-status screens**, not one monolithic view — `match.status` picks which of these renders:
+  - **`LINEUPS_SET`**: "Ready when you are." + a big **Kick Off** button
+    (`useStartMatch`) — kickoff no longer fires automatically from the lineup screen's "Continue
+    to Match" (§5.2); it's an explicit, user-selected action here, same as the user asked for.
+  - **`LIVE`/`PAUSED`**: the full scoreboard + clock + pitch + actions + commentary (detailed
+    below).
+  - **`HALF_TIME`**: score so far, "Half Time" label, a big **Kick Off 2nd Half** button
+    (`useStartSecondHalf`) — same explicit-kickoff principle as the first half — plus the
+    commentary feed so the first half's events stay visible while deciding.
+  - **`FULL_TIME`**: final score, "Full Time — Match Ended," commentary feed, no actions.
+- **Scoreboard + clock**: team names either side of `homeScore - awayScore` (`MatchState`, §4),
+  below it `{elapsed} / {halfDurationSec + addedTimeSec}` plus the current period label ("1st
+  Half"/"2nd Half") and, if any stoppage time has been added, a "+N min added" line. Once
+  elapsed reaches the half's limit, a red "Time's up — end the first half/match when ready" line
+  appears — a nudge, not an automatic transition (the first of the two decisions above). The
+  clock is server-authoritative: `computeElapsedSec(state, nowMs)` (local copy of
+  `matches.repository.ts`'s helper of the same name) banks `state.elapsedSec` plus however long
+  it's been running since `state.clockStartedAt`, or just the banked value while paused — not a
+  raw `now - clockStartedAt` diff, which broke the moment pause/second-half resets were
+  introduced. `nowMs` is only ever read inside a `useEffect`/`setInterval` (ticking once a
+  second, gated on `state.clockRunning`), never `Date.now()` during render — the React Compiler
+  ESLint rules flag the latter as impure.
+- **Pause / Resume** toggle button; disabled while paused: Goal/Save/Foul (backend already
+  rejects these with `422 MATCH_NOT_LIVE` outside `LIVE`, this is just not offering a control
+  that would visibly fail). **Add stoppage time**: three quick "+1/+2/+5 min" pills
+  (`useAddTime`) — only stoppage time for the half in progress, not knockout extra-time periods.
+  **End 1st Half** (`useEndFirstHalf`): only shown during `FIRST_HALF`, switches to a solid black
+  fill once time's up as a visual nudge (still tappable either way — it's a prompt, not a gate).
+- **The pitch**: `pitch/FootballPitch` (§7) reused **read-only** — `interactive?: boolean` prop
+  (default `true`, so `match/[id]/lineup.tsx`'s two call sites needed no changes) skips building
+  any `GestureDetector`/pan/tap gesture at all on `PlayerToken` when `false`, not just wiring
+  no-op handlers — so a mis-tap during a live match can't reposition the saved lineup. Positions
+  come straight from `match.lineups`' `slotIndex` (fixed at kickoff), not from any local override
+  state.
 - **Goal / Save / Foul** action row. **Goal** opens a two-step bottom-sheet `Modal`
   (`PlayerPickerModal`, local to this file): pick the scorer from either team's starters (which
   also fixes the side), then pick an assist from the same side's remaining starters or "No
@@ -408,19 +449,26 @@ match-events/match-engine split (see that doc's §5 note on why).
   "common for both" — lists every starter from **both** teams in one picker rather than two
   separate per-team buttons. Each selection calls `useRecordMatchEvent` with a client-generated
   `clientEventId` (`makeClientEventId()`, `useMatches.ts`) so a retried request can't double-count.
+- **End Match confirmation**: a small `ConfirmModal` (local to this file, same `Modal`-based
+  shape as `PlayerPickerModal`) — deliberately **not** RN's `Alert.alert`, which has no
+  implementation in `react-native-web` and would silently do nothing on the web build this app
+  also exports.
 - **Commentary** feed below the actions (per the request — "commentory running below"):
   `match.events` (already ascending by `seq` from the API) reversed to newest-first, each row
-  `{mm:ss}` + a plain-English line built client-side (`describeEvent`) from the event type,
-  resolved player names (team rosters already fetched for the picker) and, for a goal, the
-  assist if any.
+  `{period label} {mm:ss}` + a plain-English line built client-side (`describeEvent`) covering
+  every event type now recorded (`KICK_OFF`, `GOAL`, `SHOT_SAVED`, `FOUL`, `PAUSE`, `RESUME`,
+  `ADD_TIME`, `HALF_TIME`, `SECOND_HALF_START`, `FULL_TIME`), resolved player names, and for a
+  goal, the assist if any.
 
-**Not built this pass** (still the aspirational target design below, unchanged): Pause/Resume,
-Undo, End Match, the reference's full possession/pass-tracking engine (Record
-Shot/Pass/Turnover/Corner, `FootballPitch mode="match"` tap-to-possess), Manage Team from this
-screen, a landscape view here, and a non-scorer viewer mode. None of the backend support for
-those exists yet either (`BACKEND_INSTRUCTIONS.md` §7.2's `/events/undo` row). Also not yet
-eyes-on tested on a real device/browser — verified via typecheck/lint/`expo export --platform
-web` and a full backend curl walkthrough only.
+**Not built this pass** (still the aspirational target design below): Undo, the reference's
+full possession/pass-tracking engine (Record Shot/Pass/Turnover/Corner, `FootballPitch
+mode="match"` tap-to-possess), Manage Team from this screen, a landscape view here, a non-scorer
+viewer mode, and knockout-style extra-time periods/penalties (`MatchStatus.EXTRA_TIME`/
+`PENALTIES`/`COMPLETED`/`ABANDONED` are all still unused — "End Match" always lands on
+`FULL_TIME`, whether called naturally or early). None of the backend support for Undo exists
+either (`BACKEND_INSTRUCTIONS.md` §7.2's `/events/undo` row). Also not yet eyes-on tested on a
+real device/browser — verified via typecheck/lint/`expo export --platform web` and a full
+backend curl walkthrough of the whole state machine only.
 
 Top to bottom (portrait), identical order to reference — this is the **original target design**,
 mostly still unbuilt (see above for what's real today):
@@ -784,3 +832,5 @@ before spending time bisecting files.
 | 2026-10-27 | lineup-timer-reset-gk-landscape    | Picked up the four things the previous entry scoped out, plus two newly user-requested (user call: "have option for landscape and when the player is selected in the list of rooster it should show option to change to goal, and have reset button in the groud ui to reset the player position and diaply the match timer and option to edit"), all on `match/[id]/lineup.tsx` (§5.2). **Match timer display + edit**: needed a genuinely new backend capability — `PATCH /matches/:id` (`UpdateMatchDto { halfDurationSec? }`, `BACKEND_INSTRUCTIONS.md` §7.2, same owner/status guard as `setLineups`) plus new `useUpdateMatch` (`useMatches.ts`) — shown as a clock-icon pill under the subtitle, tap to reveal 5–45 min presets. **Reset Positions**: `resetPositions()` just sets both sides' `overrides` back to `null`, reusing the existing derived-default mechanism rather than a new undo stack. **Goalkeeper from the roster list**: `RosterPanel` rows for a non-GK player now show a tappable target icon calling a new shared `makeGoalkeeper(side, playerId)` — extracted from the pitch-tap handler (`handleSetGoalkeeper` now delegates to it) so both callers (a pitch token, which has a `slotIndex`; a benched roster row, which doesn't) share one swap-or-assign code path instead of duplicating it. **Landscape View**: real OS-level lock via `expo-screen-orientation` (`ScreenOrientation.lockAsync`, reverted to portrait on unmount so leaving the screen never strands the rest of the app rotated) — deliberately not a CSS-transform fake rotation, which would have desynced the gesture system's screen-space touch coordinates from the visually-rotated content and likely broken pitch drag-to-swap. Orientation locking is unreliable outside fullscreen on web, so toggling it there (and for the native case too, for consistency) switches to a dedicated chrome-free layout instead — header/timer/roster/Start Match all hidden, just the pitch plus an Exit-Landscape/Reset toolbar; `FootballPitch` already measures its own container via `onLayout` and sizes off `width: '100%'`, so it picks up the extra space for free. Verified: typecheck/lint clean, `expo export --platform web` bundles `lineup.tsx` cleanly (40KB). Not verified: the rotated/chrome-free layout and the goalkeeper-from-list tap haven't been eyes-on tested on a real device or browser — same standing gap as the drag gesture feel, noted above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-10-27 | live-match-goal-save-foul-timer    | Replaced the `match/[id]/live.tsx` stub with a real, deliberately scoped-down slice of §5.3's target design (user call, verbatim: "if i start the match it shuld[show] the turf ui and along with action button to mark goal, who scored who assisted, goal save from goal, timer running, commentory running below, foul it should common for both"), plus fixing the stub's "back to dashboard" button to be a pinned header rather than a plain bordered pill inside the scrollable content ("backk to the dashboard should be at top proper ui"). See §5.3 for the full breakdown; summary: pinned icon-back header, scoreboard + server-authoritative clock, `pitch/FootballPitch` reused read-only (new `interactive` prop, §7), Goal (scorer + optional assist)/Save (pick a goalkeeper)/Foul (one shared picker across both teams, not two per-team buttons) via new bottom-sheet `PlayerPickerModal` (local to the file) and `useRecordMatchEvent`, and a newest-first commentary feed built client-side from `match.events`. `match/[id]/lineup.tsx`'s "Start Match" now chains `useSetLineups` → new `useStartMatch` → navigate, since the live screen expects the match to already be `LIVE` with a running clock. Backend companion, same date (`BACKEND_INSTRUCTIONS.md`): new `POST /matches/:id/start`/`POST /matches/:id/events` (scoped to GOAL/SHOT_SAVED/FOUL), plus removed a dead empty `match-events` module scaffold that had been silently sitting on the exact same route prefix with zero actual routes — found while wiring the new controller methods and registering the Nest startup log's duplicate controller-path entry for `matches/:id/events`. Promoted `slotsFor()` out of `lineup.tsx` into `useMeta.ts` so both screens share it rather than duplicating the formation-slot lookup. Hit two new-to-this-codebase ESLint failures from the React Compiler rule set while building this: calling `Date.now()` directly during render for the timer (`react-hooks/purity`) — fixed by only ever reading it inside the `useEffect`/`setInterval` callback, writing the result into state, never computing it inline in the render body; and a `react-hooks/immutability` false-positive on `PlayerToken`'s pre-existing (unchanged) Reanimated `translateX.value +=` mutations that only appeared after restructuring the component with a conditional early return _before_ the gesture objects were constructed — fixed by keeping `Gesture.Pan()`/`Gesture.Tap()` construction unconditional (matching the original file's ordering) and only branching at the very end on whether to wrap the result in `GestureDetector`. Verified end-to-end against the dev DB via curl (scratch 3v3 match: kickoff, goal+assist, save, foul, idempotent retry, every validation error path, full cleanup) since there's no live login flow in this environment for exercising the actual UI; typecheck/lint/`expo export --platform web` clean (`live.tsx` 1KB → 13KB). Not verified: the real device/browser feel of the modals, read-only pitch, and pinned header. |
 | 2026-11-17 | session-death-redirect             | Bug fix (user report, with a screenshot of `(tabs)/profile.tsx` rendering "Your profile" / "No bio yet" / blank phone — a logged-in-looking shell with no actual data): `app/index.tsx`'s gate only ever checked that a refresh token was _present_ in storage, not that it was still _valid_ — so a dead/revoked refresh token landed the user inside `(tabs)` on top of a failed `useMe()` query instead of back at login. Fixed at the single choke point every session-check passes through, not per-screen: `src/stores/authStore.ts`'s `refreshSession()` now calls `router.replace('/(auth)/login')` (after its own `logout()`) whenever the refresh token is missing or the server rejects it — reusing the exact `router.replace` pattern `(tabs)/profile.tsx`'s manual logout already used, just imported into the store instead of a component. Left alone on purpose: a network error reaching `/auth/refresh` does _not_ trigger this (the refresh token itself might still be fine, just offline) — only a definitive server rejection does. Also hardened `(tabs)/profile.tsx` itself to show a spinner during `useMe()`'s real initial-loading window (`isPending`) instead of silently falling through to the same empty-field placeholders that made the dead-session case look identical to a loading flicker. Verified: typecheck + lint clean; did not attempt to repro the original dead-refresh-token state live (would need a revoked/expired token against the real backend), so the actual redirect firing end-to-end on-device is unverified, only inspected by reading the control flow.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-11-17 | live-match-stale-cache-fix         | Bug fix (user report: tapping "Start Match" landed on `match/[id]/live.tsx` showing "This match hasn't kicked off yet" even though the backend had genuinely transitioned it to `LIVE`). Root cause: the global `QueryClient` sets `staleTime: 30_000` (`app/_layout.tsx`) — `lineup.tsx`'s `handleStart` called `setLineups.mutate`/`startMatch.mutate` but never wrote either response into the cache, so `live.tsx`'s `useMatch(id)` served the 30-second-old pre-kickoff snapshot on mount instead of refetching (not stale yet, by the clock). Fixed by adding `queryClient.setQueryData(matchKeys.detail(match.id), ...)` after each mutation succeeds, before navigating — same pattern already used for the half-duration edit, just missed here. (Superseded later the same day by the kickoff-moves-to-live-screen rework below, but the underlying "write mutation responses into the cache before navigating" lesson still applies to every mutate-then-navigate flow in this file.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-11-17 | match-clock-state-machine          | Second live-match pass, same day as `live-match-goal-save-foul-timer` above (user call, verbatim: "i need option edit timer, pause end timer which is end match, edit time, th time we selected, only that much the match should last after that it should be ended, and allow add extra time and cleary howmuch time for half time and full time, kick off should be selected by the user"). See §5.3 for the full breakdown of what changed on `match/[id]/live.tsx` and `match/[id]/lineup.tsx` (Start Match renamed "Continue to Match," no longer calls `/start`). Two state-machine design decisions were asked of the user via `AskUserQuestion` before building, not guessed, since either answer meant a materially different implementation: a half ending is **user-confirmed, not automatic**, and "extra time" means **stoppage/added time within a half**, not knockout-style extra-time periods. New hooks in `useMatches.ts`: `useStartMatch` (moved here from being lineup.tsx-only), `usePauseMatch`, `useResumeMatch`, `useAddTime`, `useEndFirstHalf`, `useStartSecondHalf`, `useEndMatch` — plus `MatchState` gained `elapsedSec`/`period`/`addedTimeSec` and `MatchEventType`/`MatchEvent` widened to cover `PAUSE`/`RESUME`/`ADD_TIME`/`HALF_TIME`/`SECOND_HALF_START`/`FULL_TIME` (`period`/`addedSeconds` fields too). New local `ConfirmModal` (same `Modal`-based shape as `PlayerPickerModal`) for the "End Match?" confirmation — deliberately not RN's `Alert.alert`, which `react-native-web` doesn't implement and would silently no-op on this app's web export. Backend companion (`BACKEND_INSTRUCTIONS.md` §4/§7.2, same date): new migration adding `MatchEventType.ADD_TIME`, `MatchEvent.period`, `MatchState.addedTimeSec`; six new endpoints plus a `computeElapsedSec()` fix to `recordEvent` that the previous entry's events had been missing (banked elapsed time, not a raw diff from original kickoff — would have desynced the moment pause or a second half existed). Verified end-to-end against the dev DB via curl (scratch match: kickoff → pause → resume → add 90s → half-time → second-half kickoff → goal recorded with `period: "SECOND_HALF"` → end, plus every invalid-transition error) since there's no live login flow in this environment; typecheck/lint/`expo export --platform web` clean (`live.tsx` 13KB → 24KB). Not verified: the real device/browser feel of any of this — same standing gap noted throughout this file for the pitch/drag work.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |

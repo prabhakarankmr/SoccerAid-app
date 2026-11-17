@@ -31,17 +31,38 @@ export type MatchStatus =
   | 'COMPLETED'
   | 'ABANDONED';
 
+// Which half the match is currently in, independent of Side.HOME/AWAY — mirrors the backend's
+// MatchPeriod (matches.repository.ts, §4).
+export type MatchPeriod = 'FIRST_HALF' | 'HALF_TIME' | 'SECOND_HALF' | 'FULL_TIME';
+
 // Projection — null until useStartMatch (kickoff) succeeds.
 export interface MatchState {
   homeScore: number;
   awayScore: number;
   clockStartedAt: string | null;
   clockRunning: boolean;
+  // Banked seconds for the CURRENT period — the live display value while running is
+  // `elapsedSec + (now - clockStartedAt)`; while paused/between halves, elapsedSec alone.
+  elapsedSec: number;
+  period: MatchPeriod;
+  // Stoppage time (seconds) added to the CURRENT half — the half's effective limit is
+  // `halfDurationSec + addedTimeSec`.
+  addedTimeSec: number;
 }
 
-// Scoped to what the live screen actually records (useRecordMatchEvent) — the backend's full
-// MatchEventType enum has more values (PASS, CORNER…) that nothing creates yet, KICK_OFF aside.
-export type MatchEventType = 'KICK_OFF' | 'GOAL' | 'SHOT_SAVED' | 'FOUL';
+// Scoped to what the live screen actually records/triggers — the backend's full MatchEventType
+// enum has more values (PASS, CORNER…) that nothing creates yet.
+export type MatchEventType =
+  | 'KICK_OFF'
+  | 'GOAL'
+  | 'SHOT_SAVED'
+  | 'FOUL'
+  | 'PAUSE'
+  | 'RESUME'
+  | 'ADD_TIME'
+  | 'HALF_TIME'
+  | 'SECOND_HALF_START'
+  | 'FULL_TIME';
 
 export interface MatchEvent {
   id: string;
@@ -50,7 +71,9 @@ export interface MatchEvent {
   side: Side | null;
   playerId: string | null;
   assistPlayerId: string | null;
+  addedSeconds: number | null;
   matchClockSec: number;
+  period: MatchPeriod | null;
   createdAt: string;
 }
 
@@ -142,6 +165,43 @@ export function useRecordMatchEvent(matchId: string | undefined) {
   return useMutation({
     mutationFn: (input: RecordMatchEventInput) =>
       apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/events`, input),
+  });
+}
+
+export function usePauseMatch(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/pause`),
+  });
+}
+
+export function useResumeMatch(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/resume`),
+  });
+}
+
+export function useAddTime(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: (seconds: number) =>
+      apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/add-time`, { seconds }),
+  });
+}
+
+export function useEndFirstHalf(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/half-time`),
+  });
+}
+
+export function useStartSecondHalf(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/second-half`),
+  });
+}
+
+export function useEndMatch(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/end`),
   });
 }
 

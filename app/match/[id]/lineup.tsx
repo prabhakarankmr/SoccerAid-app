@@ -29,7 +29,6 @@ import {
   LineupPlayerInput,
   useMatch,
   useSetLineups,
-  useStartMatch,
   useUpdateMatch,
 } from '../../../src/hooks/useMatches';
 import { PlayerSummary } from '../../../src/hooks/usePlayers';
@@ -299,7 +298,6 @@ export default function MatchLineup() {
   const [isLandscape, setIsLandscape] = useState(false);
 
   const setLineups = useSetLineups(id);
-  const startMatch = useStartMatch(id);
   const updateMatch = useUpdateMatch(id);
 
   // Leaving this screen always restores portrait — never strand the rest of the app rotated.
@@ -532,24 +530,15 @@ export default function MatchLineup() {
       },
       {
         onSuccess: (lineupsSaved) => {
-          // The global QueryClient sets staleTime: 30s (app/_layout.tsx) — without writing
-          // each mutation's response straight into the cache, live.tsx's useMatch(id) would
-          // serve the pre-kickoff snapshot (still LINEUPS_SET) for up to 30s after navigating,
-          // rather than refetching, making the match look like it never started.
+          // The global QueryClient sets staleTime: 30s (app/_layout.tsx) — without writing the
+          // mutation's response straight into the cache, live.tsx's useMatch(id) would serve
+          // the pre-save snapshot for up to 30s after navigating rather than refetching.
           queryClient.setQueryData(matchKeys.detail(match.id), lineupsSaved);
 
-          // Lineups saved — kick off separately (its own owner/status guard, same as every
-          // other match-settings mutation here) before handing off to the live screen, which
-          // expects the match to already be LIVE with a running clock.
-          startMatch.mutate(undefined, {
-            onSuccess: (started) => {
-              queryClient.setQueryData(matchKeys.detail(match.id), started);
-              router.replace({ pathname: '/match/[id]/live', params: { id: match.id } });
-            },
-            onError: (startError) => {
-              console.error('POST /matches/:id/start failed:', startError);
-            },
-          });
+          // Kickoff itself is a separate, explicit action on the live screen (a "Kick Off"
+          // button) — the match stays LINEUPS_SET until the user actually taps it there, not
+          // the moment lineups are saved.
+          router.replace({ pathname: '/match/[id]/live', params: { id: match.id } });
         },
         onError: (lineupError) => {
           console.error('PUT /matches/:id/lineups failed:', lineupError);
@@ -699,23 +688,20 @@ export default function MatchLineup() {
           {__DEV__ && setLineups.error instanceof Error ? ` (${setLineups.error.message})` : ''}
         </Text>
       ) : null}
-      {startMatch.isError ? (
-        <Text className="mt-2 text-sm text-red-700">Could not start the match — try again</Text>
-      ) : null}
 
       <Pressable
         onPress={handleStart}
-        disabled={!isValid || setLineups.isPending || startMatch.isPending}
-        accessibilityLabel="Start Match"
-        accessibilityHint="Saves the lineup and opens the live match screen"
+        disabled={!isValid || setLineups.isPending}
+        accessibilityLabel="Continue to Match"
+        accessibilityHint="Saves the lineup and opens the live match screen, where you choose when to kick off"
         className={`mt-4 items-center rounded-lg py-4 ${
-          isValid && !setLineups.isPending && !startMatch.isPending ? 'bg-black' : 'bg-gray-300'
+          isValid && !setLineups.isPending ? 'bg-black' : 'bg-gray-300'
         }`}
       >
-        {setLineups.isPending || startMatch.isPending ? (
+        {setLineups.isPending ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text className="text-base font-bold text-white">Start Match</Text>
+          <Text className="text-base font-bold text-white">Continue to Match</Text>
         )}
       </Pressable>
 
