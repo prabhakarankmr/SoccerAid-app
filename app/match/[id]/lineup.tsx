@@ -531,12 +531,19 @@ export default function MatchLineup() {
         away: toLineupPayload(awaySlots, awayAssignments, awayAvailable),
       },
       {
-        onSuccess: () => {
+        onSuccess: (lineupsSaved) => {
+          // The global QueryClient sets staleTime: 30s (app/_layout.tsx) — without writing
+          // each mutation's response straight into the cache, live.tsx's useMatch(id) would
+          // serve the pre-kickoff snapshot (still LINEUPS_SET) for up to 30s after navigating,
+          // rather than refetching, making the match look like it never started.
+          queryClient.setQueryData(matchKeys.detail(match.id), lineupsSaved);
+
           // Lineups saved — kick off separately (its own owner/status guard, same as every
           // other match-settings mutation here) before handing off to the live screen, which
           // expects the match to already be LIVE with a running clock.
           startMatch.mutate(undefined, {
-            onSuccess: () => {
+            onSuccess: (started) => {
+              queryClient.setQueryData(matchKeys.detail(match.id), started);
               router.replace({ pathname: '/match/[id]/live', params: { id: match.id } });
             },
             onError: (startError) => {
