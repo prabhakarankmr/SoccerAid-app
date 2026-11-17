@@ -23,7 +23,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 export default function Profile() {
-  const { data: me } = useMe();
+  const { data: me, isPending: isMePending } = useMe();
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
 
@@ -75,6 +75,17 @@ export default function Profile() {
   const usernameTaken =
     mutation.error instanceof ApiError && mutation.error.code === 'USERNAME_TAKEN';
   const avatarLetter = (isEditing ? displayName : me?.name)?.trim().charAt(0).toUpperCase() || '?';
+
+  if (isMePending) {
+    // Covers the real (brief) initial-fetch window. A *failed* fetch never reaches here — the
+    // API client redirects to login itself once a dead session is confirmed (src/stores/authStore.ts
+    // refreshSession) — so this screen only ever needs to handle "still loading", not "failed".
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator color="#000000" />
+      </View>
+    );
+  }
 
   return (
     // KeyboardAvoidingView + ScrollView, not a plain View: without this the keyboard covers

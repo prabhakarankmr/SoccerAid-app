@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { create } from 'zustand';
 
 import { API_VERSION, env } from '../config/env';
@@ -49,6 +50,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { refreshToken } = get();
 
     if (!refreshToken) {
+      await get().logout();
+      router.replace('/(auth)/login');
       return false;
     }
 
@@ -60,7 +63,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (!res.ok) {
+        // The refresh token itself was rejected (expired/revoked/reused) — this session is
+        // genuinely over, not a transient blip. Every screen past app/index.tsx's gate assumes
+        // a logged-in session exists, so don't leave the caller's failed request as the only
+        // sign anything's wrong: clear the dead tokens and send the user back to login instead
+        // of letting them sit in the app on top of empty/failed queries (e.g. an empty-looking
+        // profile screen).
         await get().logout();
+        router.replace('/(auth)/login');
         return false;
       }
 
@@ -68,6 +78,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await get().setTokens(json.data);
       return true;
     } catch {
+      // Network failure reaching /auth/refresh — the refresh token itself might still be
+      // good, so don't log the user out over a connectivity blip. The caller's original
+      // request still fails; it'll just retry next time there's a network.
       return false;
     }
   },
