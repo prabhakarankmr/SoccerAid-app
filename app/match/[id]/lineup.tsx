@@ -24,11 +24,12 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { apiClient, ApiError } from '../../../src/api/client';
 import { matchKeys } from '../../../src/api/queryKeys';
 import { FootballPitch, PitchSide, PitchSlot } from '../../../src/components/pitch/FootballPitch';
-import { Formation, FormationSlot, useFormations } from '../../../src/hooks/useMeta';
+import { FormationSlot, slotsFor, useFormations } from '../../../src/hooks/useMeta';
 import {
   LineupPlayerInput,
   useMatch,
   useSetLineups,
+  useStartMatch,
   useUpdateMatch,
 } from '../../../src/hooks/useMatches';
 import { PlayerSummary } from '../../../src/hooks/usePlayers';
@@ -47,13 +48,6 @@ function filterAvailable(players: TeamRosterPlayer[], idsParam: string | undefin
 
   const ids = new Set(idsParam.split(',').filter(Boolean));
   return ids.size > 0 ? players.filter((player) => ids.has(player.id)) : players;
-}
-
-function slotsFor(
-  formations: Formation[] | undefined,
-  formationName: string | undefined,
-): FormationSlot[] {
-  return formations?.find((formation) => formation.name === formationName)?.slots ?? [];
 }
 
 function defaultAssignments(
@@ -305,6 +299,7 @@ export default function MatchLineup() {
   const [isLandscape, setIsLandscape] = useState(false);
 
   const setLineups = useSetLineups(id);
+  const startMatch = useStartMatch(id);
   const updateMatch = useUpdateMatch(id);
 
   // Leaving this screen always restores portrait — never strand the rest of the app rotated.
@@ -537,7 +532,17 @@ export default function MatchLineup() {
       },
       {
         onSuccess: () => {
-          router.replace({ pathname: '/match/[id]/live', params: { id: match.id } });
+          // Lineups saved — kick off separately (its own owner/status guard, same as every
+          // other match-settings mutation here) before handing off to the live screen, which
+          // expects the match to already be LIVE with a running clock.
+          startMatch.mutate(undefined, {
+            onSuccess: () => {
+              router.replace({ pathname: '/match/[id]/live', params: { id: match.id } });
+            },
+            onError: (startError) => {
+              console.error('POST /matches/:id/start failed:', startError);
+            },
+          });
         },
         onError: (lineupError) => {
           console.error('PUT /matches/:id/lineups failed:', lineupError);
@@ -687,17 +692,20 @@ export default function MatchLineup() {
           {__DEV__ && setLineups.error instanceof Error ? ` (${setLineups.error.message})` : ''}
         </Text>
       ) : null}
+      {startMatch.isError ? (
+        <Text className="mt-2 text-sm text-red-700">Could not start the match — try again</Text>
+      ) : null}
 
       <Pressable
         onPress={handleStart}
-        disabled={!isValid || setLineups.isPending}
+        disabled={!isValid || setLineups.isPending || startMatch.isPending}
         accessibilityLabel="Start Match"
         accessibilityHint="Saves the lineup and opens the live match screen"
         className={`mt-4 items-center rounded-lg py-4 ${
-          isValid && !setLineups.isPending ? 'bg-black' : 'bg-gray-300'
+          isValid && !setLineups.isPending && !startMatch.isPending ? 'bg-black' : 'bg-gray-300'
         }`}
       >
-        {setLineups.isPending ? (
+        {setLineups.isPending || startMatch.isPending ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
           <Text className="text-base font-bold text-white">Start Match</Text>

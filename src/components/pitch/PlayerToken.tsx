@@ -28,6 +28,10 @@ export interface PlayerTokenProps {
   isGoalkeeper: boolean;
   containerWidth: number;
   containerHeight: number;
+  // false for a display-only pitch (match/[id]/live.tsx) — no GestureDetector is created at
+  // all in that case, not just a handler that happens to no-op, so a read-only pitch can't
+  // accidentally reposition a live match's lineup.
+  interactive?: boolean;
   onDragEnd: (deltaLeftPercent: number, deltaTopPercent: number) => void;
   onTap: () => void;
 }
@@ -41,6 +45,7 @@ export function PlayerToken({
   isGoalkeeper,
   containerWidth,
   containerHeight,
+  interactive = true,
   onDragEnd,
   onTap,
 }: PlayerTokenProps) {
@@ -94,47 +99,55 @@ export function PlayerToken({
     transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
   }));
 
-  return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={`${displayName}${isGoalkeeper ? ', goalkeeper' : ''}`}
-        accessibilityHint="Tap to make this player the goalkeeper. Drag to swap positions with another player."
-        style={[
-          {
-            position: 'absolute',
-            width: TOKEN_SIZE,
-            height: TOKEN_SIZE,
-            marginLeft: -TOKEN_SIZE / 2,
-            marginTop: -TOKEN_SIZE / 2,
-            zIndex: isGoalkeeper ? 2 : 1,
-            alignItems: 'center',
-          },
-          animatedStyle,
-        ]}
+  const tokenBody = (
+    <Animated.View
+      accessible
+      accessibilityRole={interactive ? 'button' : undefined}
+      accessibilityLabel={`${displayName}${isGoalkeeper ? ', goalkeeper' : ''}`}
+      accessibilityHint={
+        interactive
+          ? 'Tap to make this player the goalkeeper. Drag to swap positions with another player.'
+          : undefined
+      }
+      style={[
+        {
+          position: 'absolute',
+          width: TOKEN_SIZE,
+          height: TOKEN_SIZE,
+          marginLeft: -TOKEN_SIZE / 2,
+          marginTop: -TOKEN_SIZE / 2,
+          zIndex: isGoalkeeper ? 2 : 1,
+          alignItems: 'center',
+        },
+        animatedStyle,
+      ]}
+    >
+      <View
+        className="items-center justify-center rounded-full border-2"
+        style={{
+          width: TOKEN_SIZE,
+          height: TOKEN_SIZE,
+          backgroundColor: isGoalkeeper ? goalkeeper.fill : fill,
+          borderColor: isGoalkeeper ? goalkeeper.border : borderColor,
+        }}
       >
-        <View
-          className="items-center justify-center rounded-full border-2"
-          style={{
-            width: TOKEN_SIZE,
-            height: TOKEN_SIZE,
-            backgroundColor: isGoalkeeper ? goalkeeper.fill : fill,
-            borderColor: isGoalkeeper ? goalkeeper.border : borderColor,
-          }}
-        >
-          {isGoalkeeper ? (
-            <Target color="#ffffff" size={18} />
-          ) : (
-            <UserIcon color="#ffffff" size={18} />
-          )}
-        </View>
-        <View className="mt-0.5 max-w-[64px] rounded-full bg-black/60 px-1.5 py-0.5">
-          <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
-            {displayName}
-          </Text>
-        </View>
-      </Animated.View>
-    </GestureDetector>
+        {isGoalkeeper ? (
+          <Target color="#ffffff" size={18} />
+        ) : (
+          <UserIcon color="#ffffff" size={18} />
+        )}
+      </View>
+      <View className="mt-0.5 max-w-[64px] rounded-full bg-black/60 px-1.5 py-0.5">
+        <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
+          {displayName}
+        </Text>
+      </View>
+    </Animated.View>
   );
+
+  if (!interactive) {
+    return tokenBody;
+  }
+
+  return <GestureDetector gesture={gesture}>{tokenBody}</GestureDetector>;
 }

@@ -31,6 +31,29 @@ export type MatchStatus =
   | 'COMPLETED'
   | 'ABANDONED';
 
+// Projection — null until useStartMatch (kickoff) succeeds.
+export interface MatchState {
+  homeScore: number;
+  awayScore: number;
+  clockStartedAt: string | null;
+  clockRunning: boolean;
+}
+
+// Scoped to what the live screen actually records (useRecordMatchEvent) — the backend's full
+// MatchEventType enum has more values (PASS, CORNER…) that nothing creates yet, KICK_OFF aside.
+export type MatchEventType = 'KICK_OFF' | 'GOAL' | 'SHOT_SAVED' | 'FOUL';
+
+export interface MatchEvent {
+  id: string;
+  seq: number;
+  type: MatchEventType;
+  side: Side | null;
+  playerId: string | null;
+  assistPlayerId: string | null;
+  matchClockSec: number;
+  createdAt: string;
+}
+
 export interface MatchDetail {
   id: string;
   homeTeam: MatchTeamRef;
@@ -43,6 +66,8 @@ export interface MatchDetail {
   hasPenalties: boolean;
   status: MatchStatus;
   lineups: MatchLineupPlayer[];
+  state: MatchState | null;
+  events: MatchEvent[];
 }
 
 export interface CreateMatchInput {
@@ -97,4 +122,31 @@ export function useUpdateMatch(matchId: string | undefined) {
     mutationFn: (input: UpdateMatchInput) =>
       apiClient.patch<MatchDetail>(`/matches/${matchId ?? ''}`, input),
   });
+}
+
+export function useStartMatch(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/start`),
+  });
+}
+
+export interface RecordMatchEventInput {
+  type: 'GOAL' | 'SHOT_SAVED' | 'FOUL';
+  side: Side;
+  playerId: string;
+  assistPlayerId?: string;
+  clientEventId: string;
+}
+
+export function useRecordMatchEvent(matchId: string | undefined) {
+  return useMutation({
+    mutationFn: (input: RecordMatchEventInput) =>
+      apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/events`, input),
+  });
+}
+
+// One per tap, not per retry — good enough for `MatchEvent`'s idempotency key (§4 backend docs)
+// without needing a real UUID dependency: collision odds are irrelevant at human-tap rates.
+export function makeClientEventId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }

@@ -40,3 +40,12 @@ export function useFormations(playersPerSide: number | undefined) {
     staleTime: Infinity,
   });
 }
+
+// Shared by match/[id]/lineup.tsx (editable) and match/[id]/live.tsx (read-only) — both need
+// the chosen formation's slot geometry, just sourced from different player-assignment state.
+export function slotsFor(
+  formations: Formation[] | undefined,
+  formationName: string | undefined,
+): FormationSlot[] {
+  return formations?.find((formation) => formation.name === formationName)?.slots ?? [];
+}

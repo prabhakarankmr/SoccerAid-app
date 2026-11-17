@@ -23,9 +23,13 @@ interface FootballPitchProps {
   awayLabel: string;
   homeSlots: PitchSlot[];
   awaySlots: PitchSlot[];
-  onSwap: (side: PitchSide, fromSlotIndex: number, toSlotIndex: number) => void;
-  onSetGoalkeeper: (side: PitchSide, slotIndex: number) => void;
-  onAssignNext: (side: PitchSide, slotIndex: number) => void;
+  // false for a display-only pitch (match/[id]/live.tsx) — no dragging, no tap-to-GK, no
+  // tap-to-assign on empty slots. Defaults true so the existing lineup-editing call sites need
+  // no changes. onSwap/onSetGoalkeeper/onAssignNext are only required when interactive.
+  interactive?: boolean;
+  onSwap?: (side: PitchSide, fromSlotIndex: number, toSlotIndex: number) => void;
+  onSetGoalkeeper?: (side: PitchSide, slotIndex: number) => void;
+  onAssignNext?: (side: PitchSide, slotIndex: number) => void;
 }
 
 // Home = Team A (right half), away = Team B (left half) — one continuous pitch, not two side
@@ -59,6 +63,7 @@ export function FootballPitch({
   awayLabel,
   homeSlots,
   awaySlots,
+  interactive = true,
   onSwap,
   onSetGoalkeeper,
   onAssignNext,
@@ -80,7 +85,7 @@ export function FootballPitch({
     );
 
     if (target.slotIndex !== slot.slotIndex) {
-      onSwap(side, slot.slotIndex, target.slotIndex);
+      onSwap?.(side, slot.slotIndex, target.slotIndex);
     }
   }
 
@@ -96,7 +101,7 @@ export function FootballPitch({
           top={top}
           borderColor={colors.emptySlotBorder}
           backgroundColor={colors.emptySlotBg}
-          onPress={() => onAssignNext(side, slot.slotIndex)}
+          onPress={interactive ? () => onAssignNext?.(side, slot.slotIndex) : () => {}}
           label={slot.isGoalkeeper ? 'Empty goalkeeper slot' : 'Empty position'}
         />
       );
@@ -113,8 +118,9 @@ export function FootballPitch({
         isGoalkeeper={slot.isGoalkeeper}
         containerWidth={containerSize.width}
         containerHeight={containerSize.height}
+        interactive={interactive}
         onDragEnd={(dl, dt) => handleDragEnd(side, slot, dl, dt)}
-        onTap={() => onSetGoalkeeper(side, slot.slotIndex)}
+        onTap={() => onSetGoalkeeper?.(side, slot.slotIndex)}
       />
     );
   }
