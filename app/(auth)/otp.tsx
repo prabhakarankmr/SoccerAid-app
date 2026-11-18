@@ -13,6 +13,7 @@ import {
 
 import { apiClient } from '../../src/api/client';
 import { confirmOtp } from '../../src/api/firebasePhoneAuth';
+import { NoPendingOtpError } from '../../src/api/firebasePhoneAuthErrors';
 import { useAuthStore } from '../../src/stores/authStore';
 
 interface AuthResult {
@@ -67,28 +68,47 @@ export default function Otp() {
           className="mt-6 rounded-lg border border-gray-300 bg-white px-3 py-3 text-center text-lg tracking-widest text-black"
         />
 
-        {mutation.isError ? (
+        {mutation.error instanceof NoPendingOtpError ? (
+          // Retrying the same code can never work here — there's no confirmation handle left
+          // to check it against (a refresh, or in dev, Fast Refresh, wiped the module-level
+          // state while this screen itself survived) — so this gets its own message and a real
+          // way out, not the generic "wrong code" text below.
+          <Text className="mt-2 text-sm text-red-700">
+            Your code request expired — go back and send a new one.
+          </Text>
+        ) : mutation.isError ? (
           <Text className="mt-2 text-sm text-red-700">
             Incorrect or expired code — try again
             {__DEV__ && mutation.error instanceof Error ? ` (${mutation.error.message})` : ''}
           </Text>
         ) : null}
 
-        <Pressable
-          onPress={() => mutation.mutate()}
-          disabled={!isValid || mutation.isPending}
-          accessibilityLabel="Verify code"
-          accessibilityHint="Confirms the code and signs you in"
-          className={`mt-6 items-center rounded-lg py-3 ${
-            isValid && !mutation.isPending ? 'bg-black' : 'bg-gray-300'
-          }`}
-        >
-          {mutation.isPending ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text className="font-bold text-white">Verify</Text>
-          )}
-        </Pressable>
+        {mutation.error instanceof NoPendingOtpError ? (
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityLabel="Back to login"
+            accessibilityHint="Returns to the phone number screen to request a new code"
+            className="mt-6 items-center rounded-lg bg-black py-3"
+          >
+            <Text className="font-bold text-white">Back to Login</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => mutation.mutate()}
+            disabled={!isValid || mutation.isPending}
+            accessibilityLabel="Verify code"
+            accessibilityHint="Confirms the code and signs you in"
+            className={`mt-6 items-center rounded-lg py-3 ${
+              isValid && !mutation.isPending ? 'bg-black' : 'bg-gray-300'
+            }`}
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="font-bold text-white">Verify</Text>
+            )}
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

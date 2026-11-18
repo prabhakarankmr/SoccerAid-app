@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 
 import { firebaseWebConfig } from '../config/env';
+import { NoPendingOtpError } from './firebasePhoneAuthErrors';
 
 // Metro picks this file over firebasePhoneAuth.ts when bundling for web (platform
 // extension resolution — see FRONTEND_INSTRUCTIONS.md §11.1). @react-native-firebase/auth
@@ -33,7 +34,7 @@ export async function sendOtp(e164Phone: string): Promise<void> {
 /** Confirms the code with Firebase and returns the ID token for `/auth/firebase/verify`. */
 export async function confirmOtp(code: string): Promise<string> {
   if (!pendingConfirmation) {
-    throw new Error('No OTP request in progress — go back and request a new code.');
+    throw new NoPendingOtpError();
   }
 
   const credential = await pendingConfirmation.confirm(code);
