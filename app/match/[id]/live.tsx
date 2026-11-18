@@ -366,19 +366,34 @@ export default function MatchLive() {
   const canEndMatch =
     match.canScore &&
     (match.status === 'LIVE' || match.status === 'PAUSED' || match.status === 'HALF_TIME');
+  // Once the match is over there's nothing left to set up — "back" should leave the match flow
+  // entirely rather than loop through a setup screen for a match that's already finished.
+  const isEnded = match.status === 'FULL_TIME';
 
   const header = (
     <View className="flex-row items-center justify-between border-b border-gray-200 px-4 pb-3 pt-14">
       <Pressable
-        onPress={() => router.push({ pathname: '/match/[id]/lineup', params: { id: match.id } })}
-        accessibilityLabel="Back to Setup"
-        accessibilityHint="Returns to player setup — the match keeps running, this doesn't pause or end it"
+        onPress={() => {
+          if (isEnded) {
+            router.replace('/(tabs)');
+          } else {
+            router.push({ pathname: '/match/[id]/lineup', params: { id: match.id } });
+          }
+        }}
+        accessibilityLabel={isEnded ? 'Back to Home' : 'Back to Setup'}
+        accessibilityHint={
+          isEnded
+            ? 'Returns to the home screen'
+            : "Returns to player setup — the match keeps running, this doesn't pause or end it"
+        }
         className="flex-row items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1.5"
       >
         <ArrowLeft color="#000000" size={16} />
-        <Text className="text-xs font-bold text-black">Setup</Text>
+        <Text className="text-xs font-bold text-black">{isEnded ? 'Home' : 'Setup'}</Text>
       </Pressable>
-      <Text className="text-sm font-bold uppercase tracking-wide text-gray-500">Live Match</Text>
+      <Text className="text-sm font-bold uppercase tracking-wide text-gray-500">
+        {isEnded ? 'Match Ended' : 'Live Match'}
+      </Text>
       {canEndMatch ? (
         <Pressable
           onPress={() => setActiveModal({ kind: 'end-match' })}

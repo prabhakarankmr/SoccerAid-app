@@ -133,13 +133,14 @@ export function useMatch(id: string | undefined) {
   });
 }
 
-// Public discovery list for the "Matches" tab (§5.8) — defaults to LIVE, the only thing worth
-// spectating; any authenticated user, not scoped to their own teams.
-export function useMatchesList(status: MatchStatus = 'LIVE') {
+// Public discovery list for the "Matches" tab (§5.8) — Live/Ended segments; any authenticated
+// user, not scoped to their own teams. Only the Live segment polls — a FULL_TIME match's score
+// doesn't change, so there's nothing for an Ended-segment refetch to pick up.
+export function useMatchesList(status: MatchStatus) {
   return useQuery({
     queryKey: matchKeys.list(status),
     queryFn: () => apiClient.get<MatchSummary[]>(`/matches?status=${status}`),
-    refetchInterval: 15_000,
+    refetchInterval: status === 'LIVE' ? 15_000 : false,
   });
 }
 

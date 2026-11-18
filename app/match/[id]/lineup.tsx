@@ -310,9 +310,14 @@ function LockedMatchView({
   status: MatchStatus;
 }) {
   const { message, showToast } = useToast();
+  const isEnded = status === 'FULL_TIME';
 
   useEffect(() => {
-    showToast('This match is still live — leaving here doesn’t pause or end it.');
+    showToast(
+      isEnded
+        ? 'This match has ended.'
+        : 'This match is still live — leaving here doesn’t pause or end it.',
+    );
     // Only ever meant to fire once, on arrival — showToast's identity is stable (useState
     // setter) but including it would be misleading about intent, so it's deliberately omitted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -326,12 +331,12 @@ function LockedMatchView({
         contentContainerClassName="items-center px-6 pb-16 pt-20"
       >
         <Pressable
-          onPress={() => router.back()}
-          accessibilityLabel="Back"
-          accessibilityHint="Returns to match setup"
+          onPress={() => router.replace('/(tabs)')}
+          accessibilityLabel="Go to Home"
+          accessibilityHint="Returns to the home screen"
           className="self-start rounded-lg border border-gray-300 px-4 py-2"
         >
-          <Text className="font-bold text-black">← Back</Text>
+          <Text className="font-bold text-black">← Home</Text>
         </Pressable>
 
         <Text className="mt-6 text-center text-2xl font-bold text-black">
