@@ -24,7 +24,13 @@ import { useAuthStore } from '../../src/stores/authStore';
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 export default function Profile() {
-  const { data: me, isPending: isMePending } = useMe();
+  const {
+    data: me,
+    isPending: isMePending,
+    isError: isMeError,
+    error: meError,
+    refetch: refetchMe,
+  } = useMe();
   const stats = usePlayerStats(me?.player?.id);
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
@@ -79,12 +85,35 @@ export default function Profile() {
   const avatarLetter = (isEditing ? displayName : me?.name)?.trim().charAt(0).toUpperCase() || '?';
 
   if (isMePending) {
-    // Covers the real (brief) initial-fetch window. A *failed* fetch never reaches here — the
-    // API client redirects to login itself once a dead session is confirmed (src/stores/authStore.ts
-    // refreshSession) — so this screen only ever needs to handle "still loading", not "failed".
+    // Covers the real (brief) initial-fetch window only.
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator color="#000000" />
+      </View>
+    );
+  }
+
+  if (isMeError) {
+    // A *dead session* (401, refresh also rejected) never reaches here — authStore's
+    // refreshSession redirects to login itself before this ever settles into an error state
+    // (user report, 2026-11-18: this branch didn't exist yet, so any *other* failure — network
+    // error, 500, a backend that's simply not running — fell straight through to the normal
+    // render below with `me` undefined, which looked identical to a real-but-empty profile:
+    // "?" avatar, "No bio yet", a blank Phone field, no indication anything was actually wrong).
+    return (
+      <View className="flex-1 items-center justify-center bg-white px-6">
+        <Text className="text-center text-black">Could not load your profile — try again.</Text>
+        {__DEV__ && meError instanceof Error ? (
+          <Text className="mt-2 text-center text-xs text-gray-500">{meError.message}</Text>
+        ) : null}
+        <Pressable
+          onPress={() => void refetchMe()}
+          accessibilityLabel="Retry"
+          accessibilityHint="Tries loading your profile again"
+          className="mt-4 rounded-lg border border-gray-300 px-4 py-2"
+        >
+          <Text className="font-bold text-black">Try Again</Text>
+        </Pressable>
       </View>
     );
   }
