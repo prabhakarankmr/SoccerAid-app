@@ -118,7 +118,7 @@ function describeEvent(
 ): string {
   switch (event.type) {
     case 'KICK_OFF':
-      return 'Kick-off!';
+      return event.side ? `Kick-off! ${teamNameFor(event.side)} get us underway.` : 'Kick-off!';
     case 'GOAL': {
       const assist = event.assistPlayerId ? ` (assist: ${nameOf(event.assistPlayerId)})` : '';
       return `GOAL! ${nameOf(event.playerId)} scores for ${teamNameFor(event.side)}${assist}`;
@@ -136,7 +136,9 @@ function describeEvent(
     case 'HALF_TIME':
       return 'Half-time!';
     case 'SECOND_HALF_START':
-      return 'Second half under way!';
+      return event.side
+        ? `Second half under way — ${teamNameFor(event.side)} kick off.`
+        : 'Second half under way!';
     case 'FULL_TIME':
       return 'Full-time!';
     default:
@@ -452,34 +454,47 @@ export default function MatchLive() {
           </Text>
           {match.canScore ? (
             <>
+              <Text className="mt-6 text-sm font-bold uppercase tracking-wide text-gray-500">
+                Who kicks off?
+              </Text>
               {startMatch.isError ? (
                 <Text className="mt-2 text-center text-xs text-red-700">
                   Could not start the match — try again
                 </Text>
               ) : null}
-              <Pressable
-                onPress={() => {
-                  startMatch.mutate(undefined, {
-                    onSuccess: applyUpdate,
-                    onError: (startError) => {
-                      console.error('POST /matches/:id/start failed:', startError);
-                    },
-                  });
-                }}
-                disabled={startMatch.isPending}
-                accessibilityLabel="Kick Off"
-                accessibilityHint="Starts the match clock now"
-                className="mt-6 flex-row items-center gap-2 rounded-lg bg-black px-8 py-4"
-              >
-                {startMatch.isPending ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <>
-                    <Play color="#ffffff" size={18} />
-                    <Text className="text-base font-bold text-white">Kick Off</Text>
-                  </>
-                )}
-              </Pressable>
+              <View className="mt-3 w-full flex-row gap-2">
+                {[
+                  { side: 'HOME' as const, label: match.homeTeam.name },
+                  { side: 'AWAY' as const, label: match.awayTeam.name },
+                ].map((team) => (
+                  <Pressable
+                    key={team.side}
+                    onPress={() => {
+                      startMatch.mutate(team.side, {
+                        onSuccess: applyUpdate,
+                        onError: (startError) => {
+                          console.error('POST /matches/:id/start failed:', startError);
+                        },
+                      });
+                    }}
+                    disabled={startMatch.isPending}
+                    accessibilityLabel={`${team.label} kicks off`}
+                    accessibilityHint="Starts the match clock now, with this team kicking off"
+                    className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg bg-black py-4"
+                  >
+                    {startMatch.isPending ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <>
+                        <Play color="#ffffff" size={16} />
+                        <Text className="text-sm font-bold text-white" numberOfLines={1}>
+                          {team.label}
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
             </>
           ) : null}
         </View>

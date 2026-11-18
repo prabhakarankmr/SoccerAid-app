@@ -173,9 +173,13 @@ export function useUpdateMatch(matchId: string | undefined) {
   });
 }
 
+// `side` is whichever team kicks off the first half — chosen on the live screen, not asked
+// again for the second half (the backend derives that automatically; standard football rule is
+// whichever team didn't take the first one does).
 export function useStartMatch(matchId: string | undefined) {
   return useMutation({
-    mutationFn: () => apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/start`),
+    mutationFn: (side: Side) =>
+      apiClient.post<MatchDetail>(`/matches/${matchId ?? ''}/start`, { side }),
   });
 }
 
