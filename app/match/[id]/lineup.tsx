@@ -277,28 +277,26 @@ function RosterPanel({
   );
 }
 
-function lockedStatusLabel(status: MatchStatus): string {
+// Lineups/settings are editable up to the final whistle (user call, 2026-11-17: "it should
+// allow to set up match even when its live") — mirrors the backend's FINISHED_MATCH_STATUSES
+// (matches.service.ts). Only these three statuses are actually unreachable/terminal; keep this
+// list in sync if the backend's set ever changes.
+const FINISHED_MATCH_STATUSES: readonly MatchStatus[] = ['FULL_TIME', 'COMPLETED', 'ABANDONED'];
+
+function endedStatusLabel(status: MatchStatus): string {
   switch (status) {
-    case 'LIVE':
-      return 'Live now';
-    case 'PAUSED':
-      return 'Paused';
-    case 'HALF_TIME':
-      return 'Half-time';
-    case 'FULL_TIME':
-      return 'Full-time — ended';
+    case 'ABANDONED':
+      return 'Abandoned';
     default:
-      return 'In progress';
+      return 'Full-time — ended';
   }
 }
 
-// Shown instead of the editable pitch once a match has kicked off — lineups can't be changed
-// after that (backend rejects with 422 INVALID_STATUS_TRANSITION), and the old behavior here
-// (rendering the full editable UI regardless) was a confusing dead end. Also the "back button
-// to go to player setup ... toast a message warning" ask (user call): the toast fires on arrival
-// here however the user got here (live screen's "Setup" button, browser back, a stale tab) —
-// more robust than only firing on one specific button press.
-function LockedMatchView({
+// Shown instead of the editable pitch once a match has actually ended — lineups can't be
+// changed after that (backend rejects with 422 INVALID_STATUS_TRANSITION). Every other status
+// (including LIVE) renders the normal editable screen below instead, since there's no
+// substitution flow in live scoring yet and this is the only way to fix a mistake mid-match.
+function EndedMatchView({
   matchId,
   homeTeamName,
   awayTeamName,
@@ -310,14 +308,9 @@ function LockedMatchView({
   status: MatchStatus;
 }) {
   const { message, showToast } = useToast();
-  const isEnded = status === 'FULL_TIME';
 
   useEffect(() => {
-    showToast(
-      isEnded
-        ? 'This match has ended.'
-        : 'This match is still live — leaving here doesn’t pause or end it.',
-    );
+    showToast('This match has ended.');
     // Only ever meant to fire once, on arrival — showToast's identity is stable (useState
     // setter) but including it would be misleading about intent, so it's deliberately omitted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -343,19 +336,19 @@ function LockedMatchView({
           {homeTeamName} vs {awayTeamName}
         </Text>
         <Text className="mt-1 text-sm font-bold uppercase tracking-wide text-gray-500">
-          {lockedStatusLabel(status)}
+          {endedStatusLabel(status)}
         </Text>
         <Text className="mt-4 text-center text-black">
-          This match has already kicked off, so the lineup and formation are locked in.
+          This match has ended, so the lineup and formation can no longer be changed.
         </Text>
 
         <Pressable
           onPress={() => router.push({ pathname: '/match/[id]/live', params: { id: matchId } })}
-          accessibilityLabel="Go to Live Match"
-          accessibilityHint="Opens the live match screen"
+          accessibilityLabel="View Match"
+          accessibilityHint="Opens the match screen"
           className="mt-6 items-center rounded-lg bg-black px-8 py-4"
         >
-          <Text className="text-base font-bold text-white">Go to Live Match</Text>
+          <Text className="text-base font-bold text-white">View Match</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -601,9 +594,9 @@ export default function MatchLineup() {
     );
   }
 
-  if (match.status !== 'SCHEDULED' && match.status !== 'LINEUPS_SET') {
+  if (FINISHED_MATCH_STATUSES.includes(match.status)) {
     return (
-      <LockedMatchView
+      <EndedMatchView
         matchId={match.id}
         homeTeamName={homeTeam.name}
         awayTeamName={awayTeam.name}
