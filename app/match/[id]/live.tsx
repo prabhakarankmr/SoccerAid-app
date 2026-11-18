@@ -375,21 +375,29 @@ export default function MatchLive() {
       <Pressable
         onPress={() => {
           if (isEnded) {
-            router.replace('/(tabs)');
+            // Wherever they actually came from — the Matches tab's Ended list, Setup after
+            // ending it themselves, a notification, etc. — rather than always landing on
+            // Dashboard regardless of entry point. Falls back to Dashboard only if there's
+            // nowhere to go back to (e.g. a direct deep link straight into this match).
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)');
+            }
           } else {
             router.push({ pathname: '/match/[id]/lineup', params: { id: match.id } });
           }
         }}
-        accessibilityLabel={isEnded ? 'Back to Home' : 'Back to Setup'}
+        accessibilityLabel={isEnded ? 'Back' : 'Back to Setup'}
         accessibilityHint={
           isEnded
-            ? 'Returns to the home screen'
+            ? 'Returns to the previous screen'
             : "Returns to player setup — the match keeps running, this doesn't pause or end it"
         }
         className="flex-row items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1.5"
       >
         <ArrowLeft color="#000000" size={16} />
-        <Text className="text-xs font-bold text-black">{isEnded ? 'Home' : 'Setup'}</Text>
+        <Text className="text-xs font-bold text-black">{isEnded ? 'Back' : 'Setup'}</Text>
       </Pressable>
       <Text className="text-sm font-bold uppercase tracking-wide text-gray-500">
         {isEnded ? 'Match Ended' : 'Live Match'}
