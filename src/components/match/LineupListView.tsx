@@ -1,5 +1,3 @@
-import ArrowLeftRight from 'lucide-react-native/icons/arrow-left-right';
-import Target from 'lucide-react-native/icons/target';
 import UserPlus from 'lucide-react-native/icons/user-plus';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
@@ -8,7 +6,7 @@ import { PitchSide } from '../pitch/FootballPitch';
 import { FormationSlot } from '../../hooks/useMeta';
 import { TeamRosterPlayer } from '../../hooks/useTeams';
 import { teamA, teamB } from '../../theme/tokens';
-import { SwapSelection } from './LineupPitchView';
+import { SelectedPlayer } from './LineupPitchView';
 
 type SlotAssignments = Record<number, string | null>;
 
@@ -24,9 +22,8 @@ interface LineupListViewProps {
   awayAvailable: TeamRosterPlayer[];
   homeBench: TeamRosterPlayer[];
   awayBench: TeamRosterPlayer[];
-  swapSelection: SwapSelection | null;
-  onSelectForSwap: (side: PitchSide, playerId: string, displayName: string) => void;
-  onMakeGoalkeeper: (side: PitchSide, playerId: string) => void;
+  selectedPlayer: SelectedPlayer | null;
+  onPlayerTap: (side: PitchSide, playerId: string) => void;
   onAssignNext: (side: PitchSide, slotIndex: number) => void;
   onAddGuest: (side: PitchSide, displayName: string) => Promise<void>;
 }
@@ -43,9 +40,8 @@ export function LineupListView({
   awayAvailable,
   homeBench,
   awayBench,
-  swapSelection,
-  onSelectForSwap,
-  onMakeGoalkeeper,
+  selectedPlayer,
+  onPlayerTap,
   onAssignNext,
   onAddGuest,
 }: LineupListViewProps) {
@@ -85,9 +81,9 @@ export function LineupListView({
     const filledStarters = Object.values(assignments).filter((id) => id !== null).length;
 
     return (
-      <View className="flex-1">
+      <View className="flex-1 rounded-2xl border border-white/30 bg-white/95 p-3 shadow-md">
         {/* Column Header */}
-        <View className="flex-row items-center justify-between pb-2">
+        <View className="flex-row items-center justify-between pb-2 border-b border-gray-100">
           <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: accentFill }}>
             <Text className="text-xs font-bold text-white">{teamName}</Text>
           </View>
@@ -105,7 +101,8 @@ export function LineupListView({
           {slots.map((slot, index) => {
             const playerId = assignments[slot.slotIndex];
             const player = playerId ? available.find((p) => p.id === playerId) : null;
-            const isSelected = swapSelection?.side === side && swapSelection.playerId === playerId;
+            const isSelected =
+              selectedPlayer?.side === side && selectedPlayer.playerId === playerId;
 
             if (!player) {
               return (
@@ -115,7 +112,7 @@ export function LineupListView({
                   accessibilityRole="button"
                   accessibilityLabel={`Empty slot ${index + 1}, tap to assign`}
                   accessibilityHint="Assigns the next available bench player to this slot"
-                  className="mt-1.5 flex-row items-center justify-between rounded-lg border border-dashed border-gray-300 bg-gray-50/80 px-2 py-2"
+                  className="mt-1.5 flex-row items-center justify-between rounded-xl border border-dashed border-gray-300 bg-gray-50/80 px-2.5 py-2.5"
                 >
                   <View className="flex-row items-center gap-2">
                     <View className="h-5 w-5 items-center justify-center rounded-full bg-gray-200">
@@ -131,48 +128,40 @@ export function LineupListView({
             }
 
             return (
-              <View
+              <Pressable
                 key={player.id}
-                className={`mt-1.5 flex-row items-center justify-between rounded-lg border px-2 py-2 ${
-                  isSelected ? 'border-amber-500 bg-amber-50' : 'border-gray-300 bg-white'
+                onPress={() => onPlayerTap(side, player.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${index + 1}. ${player.displayName}${slot.isGoalkeeper ? ', goalkeeper' : ''}${isSelected ? ', selected' : ''}`}
+                accessibilityHint={
+                  isSelected ? 'Tap to deselect' : 'Tap to swap with another player'
+                }
+                className={`mt-1.5 flex-row items-center justify-between rounded-xl border px-2.5 py-2.5 ${
+                  isSelected
+                    ? 'border-2 border-emerald-500/80 bg-emerald-500/10 shadow-sm'
+                    : 'border-gray-200 bg-white active:bg-gray-50'
                 }`}
               >
                 <View className="flex-1 flex-row items-center gap-2 pr-1">
                   <View className="h-5 w-5 items-center justify-center rounded-full bg-gray-100">
                     <Text className="text-[10px] font-bold text-gray-700">{index + 1}</Text>
                   </View>
-                  <Text className="flex-1 text-xs font-medium text-black" numberOfLines={1}>
+                  <Text
+                    className={`flex-1 text-xs ${
+                      isSelected ? 'font-bold text-emerald-950' : 'font-medium text-black'
+                    }`}
+                    numberOfLines={1}
+                  >
                     {player.displayName}
                   </Text>
                 </View>
 
-                <View className="flex-row items-center gap-2">
-                  {slot.isGoalkeeper ? (
-                    <View className="rounded-full bg-red-100 px-1.5 py-0.5">
-                      <Text className="text-[10px] font-bold text-red-700">GK</Text>
-                    </View>
-                  ) : (
-                    <Pressable
-                      onPress={() => onMakeGoalkeeper(side, player.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Make ${player.displayName} goalkeeper`}
-                      accessibilityHint="Makes this player the goalkeeper"
-                    >
-                      <Target color="#000000" size={15} />
-                    </Pressable>
-                  )}
-
-                  <Pressable
-                    onPress={() => onSelectForSwap(side, player.id, player.displayName)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Swap ${player.displayName}`}
-                    accessibilityHint="Selects this starter to swap"
-                    className="p-0.5"
-                  >
-                    <ArrowLeftRight color={isSelected ? '#b45309' : '#000000'} size={15} />
-                  </Pressable>
-                </View>
-              </View>
+                {slot.isGoalkeeper ? (
+                  <View className="rounded-full bg-red-100 px-1.5 py-0.5">
+                    <Text className="text-[10px] font-bold text-red-700">GK</Text>
+                  </View>
+                ) : null}
+              </Pressable>
             );
           })}
         </View>
@@ -197,40 +186,42 @@ export function LineupListView({
           ) : (
             bench.map((player) => {
               const isSelected =
-                swapSelection?.side === side && swapSelection.playerId === player.id;
+                selectedPlayer?.side === side && selectedPlayer.playerId === player.id;
 
               return (
-                <View
+                <Pressable
                   key={player.id}
-                  className={`mt-1.5 flex-row items-center justify-between rounded-lg border px-2 py-2 ${
-                    isSelected ? 'border-amber-500 bg-amber-50' : 'border-gray-200 bg-white'
+                  onPress={() => onPlayerTap(side, player.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${player.displayName}, bench substitute${isSelected ? ', selected' : ''}`}
+                  accessibilityHint={isSelected ? 'Tap to deselect' : 'Tap to swap with a starter'}
+                  className={`mt-1.5 flex-row items-center justify-between rounded-xl border px-2.5 py-2.5 ${
+                    isSelected
+                      ? 'border-2 border-emerald-500/80 bg-emerald-500/10 shadow-sm'
+                      : 'border-gray-200 bg-white active:bg-gray-50'
                   }`}
                 >
-                  <Text className="flex-1 text-xs text-black" numberOfLines={1}>
-                    {player.displayName}
-                  </Text>
-
-                  <View className="flex-row items-center gap-2">
-                    <Pressable
-                      onPress={() => onMakeGoalkeeper(side, player.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Make ${player.displayName} goalkeeper`}
-                      accessibilityHint="Promotes this bench player to goalkeeper"
+                  <View className="flex-1 flex-row items-center gap-2 pr-1">
+                    <View
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: accentFill }}
+                    />
+                    <Text
+                      className={`flex-1 text-xs ${
+                        isSelected ? 'font-bold text-emerald-950' : 'font-medium text-black'
+                      }`}
+                      numberOfLines={1}
                     >
-                      <Target color="#6b7280" size={15} />
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => onSelectForSwap(side, player.id, player.displayName)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Swap ${player.displayName}`}
-                      accessibilityHint="Swaps this bench player with a starter"
-                      className="p-0.5"
-                    >
-                      <ArrowLeftRight color={isSelected ? '#b45309' : '#000000'} size={15} />
-                    </Pressable>
+                      {player.displayName}
+                    </Text>
                   </View>
-                </View>
+
+                  {player.isGuest ? (
+                    <View className="rounded bg-gray-100 px-1.5 py-0.5">
+                      <Text className="text-[10px] text-gray-500">Guest</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
               );
             })
           )}

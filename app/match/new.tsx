@@ -20,6 +20,39 @@ import { TeamSummary } from '../../src/hooks/useTeams';
 
 const pitchBg = require('../../assets/pitch-bg.jpg');
 
+interface OpposingTeamContext {
+  disabledPlayerIds: string[];
+  disabledReason?: string;
+}
+
+/**
+ * Single unified helper to resolve disabled players and reason based on which slot is active
+ * and which team was selected first (bidirectional: Team A first -> filter in B, Team B first -> filter in A).
+ */
+export function getOpposingTeamContext(
+  currentSlot: 'home' | 'away' | null,
+  homeTeam: TeamSummary | null,
+  homePlayerIds: string[],
+  awayTeam: TeamSummary | null,
+  awayPlayerIds: string[],
+): OpposingTeamContext {
+  if (currentSlot === 'home' && awayTeam && awayPlayerIds.length > 0) {
+    return {
+      disabledPlayerIds: awayPlayerIds,
+      disabledReason: `Selected for ${awayTeam.name}`,
+    };
+  }
+
+  if (currentSlot === 'away' && homeTeam && homePlayerIds.length > 0) {
+    return {
+      disabledPlayerIds: homePlayerIds,
+      disabledReason: `Selected for ${homeTeam.name}`,
+    };
+  }
+
+  return { disabledPlayerIds: [] };
+}
+
 export default function MatchSetup() {
   const [homeTeam, setHomeTeam] = useState<TeamSummary | null>(null);
   const [awayTeam, setAwayTeam] = useState<TeamSummary | null>(null);
@@ -33,13 +66,25 @@ export default function MatchSetup() {
   const formationsQuery = useFormations(playersPerSide);
   const createMatch = useCreateMatch();
 
+  const opposingContext = getOpposingTeamContext(
+    pickerSlot,
+    homeTeam,
+    homePlayerIds,
+    awayTeam,
+    awayPlayerIds,
+  );
+
   function handleTeamSelected(team: TeamSummary, playerIds: string[]) {
     if (pickerSlot === 'home') {
       setHomeTeam(team);
       setHomePlayerIds(playerIds);
+      // Auto-filter: if Team B was chosen first, remove any player now chosen for Team A
+      setAwayPlayerIds((prev) => prev.filter((id) => !playerIds.includes(id)));
     } else if (pickerSlot === 'away') {
       setAwayTeam(team);
       setAwayPlayerIds(playerIds);
+      // Auto-filter: if Team A was chosen first, remove any player now chosen for Team B
+      setHomePlayerIds((prev) => prev.filter((id) => !playerIds.includes(id)));
     }
 
     setPickerSlot(null);
@@ -203,6 +248,8 @@ export default function MatchSetup() {
       <TeamPicker
         visible={pickerSlot !== null}
         title={pickerSlot === 'home' ? 'Select Team A' : 'Select Team B'}
+        disabledPlayerIds={opposingContext.disabledPlayerIds}
+        disabledReason={opposingContext.disabledReason}
         onClose={() => setPickerSlot(null)}
         onSelect={handleTeamSelected}
       />

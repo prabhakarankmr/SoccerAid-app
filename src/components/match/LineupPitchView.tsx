@@ -1,9 +1,5 @@
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
-import RotateCcw from 'lucide-react-native/icons/rotate-ccw';
-import RotateCw from 'lucide-react-native/icons/rotate-cw';
-import UserIcon from 'lucide-react-native/icons/user';
 import UserPlus from 'lucide-react-native/icons/user-plus';
-import X from 'lucide-react-native/icons/x';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
@@ -11,10 +7,9 @@ import { FootballPitch, PitchSide, PitchSlot } from '../pitch/FootballPitch';
 import { TeamRosterPlayer } from '../../hooks/useTeams';
 import { teamA, teamB } from '../../theme/tokens';
 
-export interface SwapSelection {
+export interface SelectedPlayer {
   side: PitchSide;
   playerId: string;
-  displayName: string;
 }
 
 interface LineupPitchViewProps {
@@ -27,15 +22,11 @@ interface LineupPitchViewProps {
   awayPitchSlots: PitchSlot[];
   homeBench: TeamRosterPlayer[];
   awayBench: TeamRosterPlayer[];
-  swapSelection: SwapSelection | null;
-  onSelectForSwap: (side: PitchSide, playerId: string, displayName: string) => void;
-  onCancelSwap: () => void;
+  selectedPlayer: SelectedPlayer | null;
+  onPlayerTap: (side: PitchSide, playerId: string) => void;
   onSlotTap: (side: PitchSide, slotIndex: number) => void;
   onSwapSlots: (side: PitchSide, fromSlotIndex: number, toSlotIndex: number) => void;
   onAssignNext: (side: PitchSide, slotIndex: number) => void;
-  onResetPositions: () => void;
-  onToggleLandscape: () => void;
-  isLandscape: boolean;
   onAddGuest: (side: PitchSide, displayName: string) => Promise<void>;
 }
 
@@ -49,15 +40,11 @@ export function LineupPitchView({
   awayPitchSlots,
   homeBench,
   awayBench,
-  swapSelection,
-  onSelectForSwap,
-  onCancelSwap,
+  selectedPlayer,
+  onPlayerTap,
   onSlotTap,
   onSwapSlots,
   onAssignNext,
-  onResetPositions,
-  onToggleLandscape,
-  isLandscape,
   onAddGuest,
 }: LineupPitchViewProps) {
   const [addingGuestSide, setAddingGuestSide] = useState<PitchSide | null>(null);
@@ -88,10 +75,10 @@ export function LineupPitchView({
     const isAdding = addingGuestSide === side;
 
     return (
-      <View className="flex-1 rounded-xl border border-gray-200 bg-gray-50/70 p-2.5">
-        <View className="flex-row items-center justify-between pb-1.5">
+      <View className="flex-1 rounded-2xl border border-white/30 bg-white/95 p-3 shadow-md">
+        <View className="flex-row items-center justify-between pb-2 border-b border-gray-100">
           <View className="flex-row items-center gap-1.5">
-            <View className="h-2 w-2 rounded-full" style={{ backgroundColor: accentFill }} />
+            <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: accentFill }} />
             <Text className="text-xs font-bold text-black" numberOfLines={1}>
               {label} Bench ({bench.length})
             </Text>
@@ -99,35 +86,47 @@ export function LineupPitchView({
         </View>
 
         {bench.length === 0 ? (
-          <Text className="my-2 text-[11px] italic text-gray-400">No substitutes</Text>
+          <Text className="my-3 text-center text-[11px] italic text-gray-400">No substitutes</Text>
         ) : (
-          <View className="mt-1 flex-row flex-wrap gap-1.5">
+          <View className="mt-2 flex-col gap-1.5">
             {bench.map((player) => {
               const isSelected =
-                swapSelection?.side === side && swapSelection.playerId === player.id;
+                selectedPlayer?.side === side && selectedPlayer.playerId === player.id;
 
               return (
                 <Pressable
                   key={player.id}
-                  onPress={() => onSelectForSwap(side, player.id, player.displayName)}
+                  onPress={() => onPlayerTap(side, player.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${player.displayName}, bench substitute`}
-                  accessibilityHint="Tap to swap with a starter on the pitch"
-                  className={`flex-row items-center gap-1 rounded-full border px-2.5 py-1 ${
+                  accessibilityLabel={`${player.displayName}, substitute${isSelected ? ', selected' : ''}`}
+                  accessibilityHint={
+                    isSelected ? 'Tap to deselect' : 'Tap to swap with another player'
+                  }
+                  className={`flex-row items-center justify-between rounded-xl border px-3 py-2 ${
                     isSelected
-                      ? 'border-amber-500 bg-amber-100 shadow-sm'
-                      : 'border-gray-300 bg-white active:bg-gray-100'
+                      ? 'border-2 border-emerald-500/80 bg-emerald-500/10 shadow-sm'
+                      : 'border-gray-200 bg-white active:bg-gray-50'
                   }`}
                 >
-                  <UserIcon color={isSelected ? '#b45309' : '#4b5563'} size={12} />
-                  <Text
-                    className={`text-xs font-medium ${
-                      isSelected ? 'font-bold text-amber-900' : 'text-black'
-                    }`}
-                    numberOfLines={1}
-                  >
-                    {player.displayName}
-                  </Text>
+                  <View className="flex-1 flex-row items-center gap-2 pr-1">
+                    <View
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: accentFill }}
+                    />
+                    <Text
+                      className={`text-xs ${
+                        isSelected ? 'font-bold text-emerald-950' : 'font-medium text-slate-800'
+                      }`}
+                      numberOfLines={1}
+                    >
+                      {player.displayName}
+                    </Text>
+                  </View>
+                  {player.isGuest ? (
+                    <View className="rounded bg-gray-100 px-1.5 py-0.5">
+                      <Text className="text-[10px] text-gray-500">Guest</Text>
+                    </View>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -199,73 +198,8 @@ export function LineupPitchView({
     );
   }
 
-  if (isLandscape) {
-    return (
-      <View className="flex-1 bg-white px-4 pb-6 pt-12">
-        <View className="flex-row items-center justify-between gap-2">
-          <Pressable
-            onPress={onToggleLandscape}
-            accessibilityRole="button"
-            accessibilityLabel="Exit landscape view"
-            accessibilityHint="Returns to portrait orientation"
-            className="flex-row items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2"
-          >
-            <RotateCw color="#000000" size={16} />
-            <Text className="text-xs font-bold text-black">Exit Landscape</Text>
-          </Pressable>
-          <Pressable
-            onPress={onResetPositions}
-            accessibilityRole="button"
-            accessibilityLabel="Reset positions"
-            accessibilityHint="Reverts every player to their default position"
-            className="flex-row items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2"
-          >
-            <RotateCcw color="#000000" size={16} />
-            <Text className="text-xs font-bold text-black">Reset Positions</Text>
-          </Pressable>
-        </View>
-
-        <View className="mt-3 flex-1">
-          <FootballPitch
-            homeLabel="Team A"
-            awayLabel="Team B"
-            homeSlots={homePitchSlots}
-            awaySlots={awayPitchSlots}
-            onSwap={onSwapSlots}
-            onSetGoalkeeper={onSlotTap}
-            onAssignNext={onAssignNext}
-          />
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View className="mt-3">
-      {/* Top pitch toolbar: Landscape + Reset */}
-      <View className="mb-3 flex-row gap-2">
-        <Pressable
-          onPress={onToggleLandscape}
-          accessibilityRole="button"
-          accessibilityLabel="Landscape view"
-          accessibilityHint="Rotates the pitch for more room to arrange players"
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2 active:bg-gray-100"
-        >
-          <RotateCw color="#000000" size={15} />
-          <Text className="text-xs font-bold text-black">Landscape View</Text>
-        </Pressable>
-        <Pressable
-          onPress={onResetPositions}
-          accessibilityRole="button"
-          accessibilityLabel="Reset positions"
-          accessibilityHint="Reverts every player to their default position"
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-2 active:bg-gray-100"
-        >
-          <RotateCcw color="#000000" size={15} />
-          <Text className="text-xs font-bold text-black">Reset Positions</Text>
-        </Pressable>
-      </View>
-
+    <View className="mt-4">
       {/* Formation Dropdowns directly above each half */}
       <View className="mb-2 flex-row items-center justify-between gap-3">
         {/* Team B Dropdown (Left half) */}
@@ -274,7 +208,7 @@ export function LineupPitchView({
           accessibilityRole="button"
           accessibilityLabel={`Select formation for Team B. Current: ${awayFormation}`}
           accessibilityHint="Opens tactical formation selector for Team B"
-          className="flex-1 flex-row items-center justify-between rounded-xl border border-blue-200 bg-blue-50/80 px-3 py-2 active:bg-blue-100/80"
+          className="flex-1 flex-row items-center justify-between rounded-xl border border-blue-200 bg-white/95 px-3 py-2.5 shadow-sm active:bg-white"
         >
           <View className="flex-row items-center gap-1.5">
             <View className="h-2 w-2 rounded-full" style={{ backgroundColor: teamB.fill }} />
@@ -291,7 +225,7 @@ export function LineupPitchView({
           accessibilityRole="button"
           accessibilityLabel={`Select formation for Team A. Current: ${homeFormation}`}
           accessibilityHint="Opens tactical formation selector for Team A"
-          className="flex-1 flex-row items-center justify-between rounded-xl border border-orange-200 bg-orange-50/80 px-3 py-2 active:bg-orange-100/80"
+          className="flex-1 flex-row items-center justify-between rounded-xl border border-orange-200 bg-white/95 px-3 py-2.5 shadow-sm active:bg-white"
         >
           <View className="flex-row items-center gap-1.5">
             <View className="h-2 w-2 rounded-full" style={{ backgroundColor: teamA.fill }} />
@@ -303,24 +237,6 @@ export function LineupPitchView({
         </Pressable>
       </View>
 
-      {/* Active Swap Guidance Banner */}
-      {swapSelection ? (
-        <View className="mb-2 flex-row items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-          <Text className="flex-1 text-xs font-semibold text-amber-900" numberOfLines={1}>
-            Swapping {swapSelection.displayName}: tap any starter on the pitch or bench substitute
-          </Text>
-          <Pressable
-            onPress={onCancelSwap}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel swap"
-            accessibilityHint="Dismisses player swap selection"
-            className="ml-2 rounded-full p-1 active:bg-amber-100"
-          >
-            <X color="#92400e" size={14} />
-          </Pressable>
-        </View>
-      ) : null}
-
       {/* Football Pitch */}
       <View>
         <FootballPitch
@@ -328,8 +244,9 @@ export function LineupPitchView({
           awayLabel={awayTeamName}
           homeSlots={homePitchSlots}
           awaySlots={awayPitchSlots}
+          selectedPlayerId={selectedPlayer?.playerId ?? null}
           onSwap={onSwapSlots}
-          onSetGoalkeeper={onSlotTap}
+          onSlotTap={onSlotTap}
           onAssignNext={onAssignNext}
         />
       </View>

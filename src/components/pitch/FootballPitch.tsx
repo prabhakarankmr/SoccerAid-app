@@ -27,7 +27,9 @@ interface FootballPitchProps {
   // tap-to-assign on empty slots. Defaults true so the existing lineup-editing call sites need
   // no changes. onSwap/onSetGoalkeeper/onAssignNext are only required when interactive.
   interactive?: boolean;
+  selectedPlayerId?: string | null;
   onSwap?: (side: PitchSide, fromSlotIndex: number, toSlotIndex: number) => void;
+  onSlotTap?: (side: PitchSide, slotIndex: number) => void;
   onSetGoalkeeper?: (side: PitchSide, slotIndex: number) => void;
   onAssignNext?: (side: PitchSide, slotIndex: number) => void;
 }
@@ -64,7 +66,9 @@ export function FootballPitch({
   homeSlots,
   awaySlots,
   interactive = true,
+  selectedPlayerId = null,
   onSwap,
+  onSlotTap,
   onSetGoalkeeper,
   onAssignNext,
 }: FootballPitchProps) {
@@ -107,6 +111,8 @@ export function FootballPitch({
       );
     }
 
+    const isSelected = !!slot.player && slot.player.id === selectedPlayerId;
+
     return (
       <PlayerToken
         key={`${side}-${slot.slotIndex}`}
@@ -119,8 +125,9 @@ export function FootballPitch({
         containerWidth={containerSize.width}
         containerHeight={containerSize.height}
         interactive={interactive}
+        isSelected={isSelected}
         onDragEnd={(dl, dt) => handleDragEnd(side, slot, dl, dt)}
-        onTap={() => onSetGoalkeeper?.(side, slot.slotIndex)}
+        onTap={() => (onSlotTap ?? onSetGoalkeeper)?.(side, slot.slotIndex)}
       />
     );
   }

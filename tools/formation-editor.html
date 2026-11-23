@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoccerAid Formation Visual Editor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Pitch styling */
+    .pitch-grass {
+      background: linear-gradient(135deg, #15803d 0%, #166534 50%, #14532d 100%);
+    }
+    .pitch-stripes {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.035) 0px,
+        rgba(255, 255, 255, 0.035) 44px,
+        rgba(0, 0, 0, 0.035) 44px,
+        rgba(0, 0, 0, 0.035) 88px
+      );
+    }
+    .user-select-none {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    /* Token styles */
+    .player-token {
+      touch-action: none;
+      cursor: grab;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+    .player-token:hover {
+      transform: translate(-50%, -50%) scale(1.08);
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
+    }
+    .player-token.is-dragging {
+      cursor: grabbing !important;
+      z-index: 50 !important;
+      transform: translate(-50%, -50%) scale(1.18) !important;
+      filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.7)) !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen p-3 md:p-6 user-select-none font-sans">
+  <div class="max-w-6xl mx-auto space-y-4">
+
+    <!-- Top Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">⚽</span>
+          <h1 class="text-xl font-extrabold text-white tracking-wide">SoccerAid Pure Drag & Drop Formation Editor</h1>
+          <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">Interactive</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Grab and drag any player anywhere on the pitch. No sliders — just direct fluid drag-and-drop!
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="btn-export" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-2 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+          Export / Copy JSON
+        </button>
+        <button id="btn-reset" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition">
+          Reset Defaults
+        </button>
+        <button id="btn-import-modal" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition">
+          Import JSON
+        </button>
+      </div>
+    </header>
+
+    <!-- Controls Row: Format & Formation Pickers -->
+    <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-md">
+      <!-- Format Picker -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-slate-400 font-bold">Format:</span>
+        <div id="format-pills" class="flex items-center gap-1.5 flex-wrap">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+
+      <!-- Formation Picker -->
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400 font-bold">Formation:</span>
+        <select id="formation-select" class="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-500">
+          <!-- Filled dynamically -->
+        </select>
+        <button id="btn-new-formation" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-medium" title="Create new formation for this format">
+          + New
+        </button>
+      </div>
+
+      <!-- View Options -->
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 font-medium">
+          <input type="checkbox" id="chk-show-both" checked class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
+          <span>Mirror Opponent (Collision Test)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Live Collision / Overlap Banner -->
+    <div id="collision-banner" class="p-3 rounded-2xl border text-xs font-medium flex items-center justify-between transition-all shadow-md">
+      <div class="flex items-center gap-2" id="collision-text">
+        <!-- Live status -->
+      </div>
+      <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-black/40 font-bold" id="collision-count"></span>
+    </div>
+
+    <!-- Main Drag-and-Drop Pitch Workspace -->
+    <div class="relative w-full aspect-[16/10] max-h-[580px] rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 select-none pitch-grass" id="pitch-container">
+      <!-- Grass Stripes Overlay -->
+      <div class="absolute inset-0 pitch-stripes pointer-events-none"></div>
+
+      <!-- SVG Pitch Markings -->
+      <svg class="absolute inset-0 w-full h-full pointer-events-none stroke-white/80" viewBox="0 0 100 62.5" fill="none" stroke-width="0.6">
+        <!-- Outer Pitch Boundary -->
+        <rect x="2" y="2" width="96" height="58.5" rx="1" />
+        
+        <!-- Halfway Line -->
+        <line x1="50" y1="2" x2="50" y2="60.5" stroke-dasharray="1.2 0" />
+        
+        <!-- Centre Circle & Centre Spot -->
+        <circle cx="50" cy="31.25" r="9.15" />
+        <circle cx="50" cy="31.25" r="0.6" fill="white" />
+        
+        <!-- Left Goal (Away / Team B) -->
+        <rect x="2" y="18.6" width="15" height="25.3" /> <!-- Penalty Box -->
+        <rect x="2" y="23.6" width="5.5" height="15.3" /> <!-- 6-yard Box -->
+        <path d="M 17 26.25 A 7 7 0 0 1 17 36.25" /> <!-- Penalty Arc -->
+        <circle cx="11.5" cy="31.25" r="0.5" fill="white" /> <!-- Penalty Spot -->
+        
+        <!-- Right Goal (Home / Team A) -->
+        <rect x="83" y="18.6" width="15" height="25.3" /> <!-- Penalty Box -->
+        <rect x="92.5" y="23.6" width="5.5" height="15.3" /> <!-- 6-yard Box -->
+        <path d="M 83 26.25 A 7 7 0 0 0 83 36.25" /> <!-- Penalty Arc -->
+        <circle cx="88.5" cy="31.25" r="0.5" fill="white" /> <!-- Penalty Spot -->
+
+        <!-- Halfway Safe Buffer Guides -->
+        <line x1="40" y1="2" x2="40" y2="60.5" stroke="rgba(250, 204, 21, 0.25)" stroke-dasharray="1 1" stroke-width="0.3" />
+        <line x1="60" y1="2" x2="60" y2="60.5" stroke="rgba(250, 204, 21, 0.25)" stroke-dasharray="1 1" stroke-width="0.3" />
+      </svg>
+
+      <!-- Team Badges -->
+      <div class="absolute top-3 left-3 flex items-center gap-1.5 bg-blue-600/90 text-white text-xs font-bold px-3 py-1 rounded-full shadow pointer-events-none">
+        <span class="w-2 h-2 rounded-full bg-white"></span>
+        <span>Team B (Away - Drag to adjust)</span>
+      </div>
+      <div id="home-badge" class="absolute top-3 right-3 flex items-center gap-1.5 bg-orange-500/90 text-white text-xs font-bold px-3 py-1 rounded-full shadow pointer-events-none">
+        <span>Team A (Mirrored Home)</span>
+        <span class="w-2 h-2 rounded-full bg-white"></span>
+      </div>
+
+      <!-- Instruction pill bottom-center -->
+      <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm text-[11px] text-emerald-300 border border-emerald-400/30 px-3 py-1 rounded-full pointer-events-none font-medium flex items-center gap-1.5">
+        <span>🖐️</span>
+        <span>Click or touch any token on the left half and drag freely!</span>
+      </div>
+
+      <!-- Live Floating Coordinates Tooltip (follows active drag) -->
+      <div id="drag-tooltip" class="hidden absolute pointer-events-none -translate-x-1/2 -translate-y-full mb-3 px-2.5 py-1 rounded-lg bg-black/90 text-white border border-slate-600 font-mono text-[11px] font-bold shadow-2xl z-50 flex items-center gap-1.5">
+        <span id="tooltip-text"></span>
+      </div>
+
+      <!-- Dynamic Pitch Slots Container -->
+      <div id="pitch-slots" class="absolute inset-0"></div>
+    </div>
+
+    <!-- Formations Table & Quick Actions (Clean, No Sliders!) -->
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📋</span>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+            Current Formation: <span id="summary-formation-name" class="text-emerald-400 font-bold text-sm">1-1</span> (<span id="summary-format-name">3v3</span>)
+          </h2>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400 font-medium" id="summary-slot-count">3 Players</span>
+          <button id="btn-rename" class="text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[11px]">Rename</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="text-slate-400 border-b border-slate-800 bg-slate-900/80 font-semibold">
+            <tr>
+              <th class="py-2 px-3">Slot #</th>
+              <th class="py-2 px-3">Role</th>
+              <th class="py-2 px-3">Label</th>
+              <th class="py-2 px-3">Vertical Pos (posX)</th>
+              <th class="py-2 px-3">Depth Pos (posY)</th>
+              <th class="py-2 px-3">Pitch Position</th>
+              <th class="py-2 px-3 text-right">Quick Action</th>
+            </tr>
+          </thead>
+          <tbody id="slots-table-body" class="divide-y divide-slate-800/60 font-mono text-xs">
+            <!-- Rows injected dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-[11px] text-slate-400 pt-1 flex items-center justify-between flex-wrap gap-2">
+        <span>💡 <strong>Tip:</strong> Drag players toward the left for defence/GK, and toward center for attack. Keep attackers at least 15% away from center to avoid opponent clashes.</span>
+        <span class="font-mono text-emerald-400">All changes auto-saved</span>
+      </div>
+    </div>
+
+    <!-- Export Modal / JSON Output -->
+    <div id="modal-json" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📋</span>
+            <h3 class="text-sm font-bold text-white">Exported Formations JSON</h3>
+          </div>
+          <button id="btn-close-modal" class="text-slate-400 hover:text-white text-lg">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-400">
+          Copy this configuration and send it in chat, or download the <code class="text-emerald-400">.json</code> file. I will apply these exact drag-and-dropped coordinates to the app!
+        </p>
+
+        <textarea id="json-output" class="w-full h-64 bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-emerald-300 focus:outline-none focus:border-emerald-500" readonly></textarea>
+
+        <div class="flex items-center justify-between pt-2">
+          <span id="copy-status" class="text-xs text-emerald-400 font-bold"></span>
+          <div class="flex items-center gap-2">
+            <button id="btn-copy-clipboard" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition">
+              Copy to Clipboard
+            </button>
+            <button id="btn-download-json" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition">
+              Download .json
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="modal-import" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📥</span>
+            <h3 class="text-sm font-bold text-white">Import Custom Formations JSON</h3>
+          </div>
+          <button id="btn-close-import" class="text-slate-400 hover:text-white text-lg">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-400">
+          Paste your custom formations JSON below to load all your saved positions onto the pitch.
+        </p>
+
+        <textarea id="json-input" placeholder='Paste JSON here...' class="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-slate-200 focus:outline-none focus:border-emerald-500"></textarea>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button id="btn-apply-import" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow transition">
+            Apply Formations
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Standard default formations with anti-collision spacing
+    const DEFAULT_FORMATIONS_DATABASE = {
+      3: [
+        {
+          name: '1-1',
+          playersPerSide: 3,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 50, posY: 62, label: 'DEF' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 50, posY: 26, label: 'FWD' }
+          ]
+        },
+        {
+          name: '2-0',
+          playersPerSide: 3,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 32, posY: 56, label: 'L-DEF' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 68, posY: 56, label: 'R-DEF' }
+          ]
+        }
+      ],
+      4: [
+        {
+          name: '2-1',
+          playersPerSide: 4,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 32, posY: 64, label: 'L-DEF' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 68, posY: 64, label: 'R-DEF' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 50, posY: 26, label: 'ST' }
+          ]
+        },
+        {
+          name: '1-2',
+          playersPerSide: 4,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 50, posY: 66, label: 'DEF' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 32, posY: 28, label: 'L-FWD' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 68, posY: 28, label: 'R-FWD' }
+          ]
+        }
+      ],
+      5: [
+        {
+          name: '1-2-1',
+          playersPerSide: 5,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 50, posY: 70, label: 'CB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 24, posY: 46, label: 'LM' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 76, posY: 46, label: 'RM' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 50, posY: 24, label: 'ST' }
+          ]
+        },
+        {
+          name: '2-2',
+          playersPerSide: 5,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 30, posY: 68, label: 'L-DEF' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 70, posY: 68, label: 'R-DEF' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 32, posY: 26, label: 'L-FWD' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 68, posY: 26, label: 'R-FWD' }
+          ]
+        }
+      ],
+      6: [
+        {
+          name: '2-2-1',
+          playersPerSide: 6,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 30, posY: 72, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 70, posY: 72, label: 'RB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 32, posY: 48, label: 'LM' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 68, posY: 48, label: 'RM' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 50, posY: 24, label: 'ST' }
+          ]
+        }
+      ],
+      7: [
+        {
+          name: '2-3-1',
+          playersPerSide: 7,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 30, posY: 72, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 70, posY: 72, label: 'RB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 20, posY: 46, label: 'LM' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 50, posY: 46, label: 'CM' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 80, posY: 46, label: 'RM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 50, posY: 22, label: 'ST' }
+          ]
+        },
+        {
+          name: '3-2-1',
+          playersPerSide: 7,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 22, posY: 74, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 50, posY: 76, label: 'CB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 78, posY: 74, label: 'RB' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 36, posY: 45, label: 'LCM' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 64, posY: 45, label: 'RCM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 50, posY: 22, label: 'ST' }
+          ]
+        }
+      ],
+      8: [
+        {
+          name: '3-3-1',
+          playersPerSide: 8,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 22, posY: 75, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 50, posY: 77, label: 'CB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 78, posY: 75, label: 'RB' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 22, posY: 48, label: 'LM' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 50, posY: 48, label: 'CM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 78, posY: 48, label: 'RM' },
+            { slotIndex: 7, isGoalkeeper: false, posX: 50, posY: 22, label: 'ST' }
+          ]
+        }
+      ],
+      9: [
+        {
+          name: '3-3-2',
+          playersPerSide: 9,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 22, posY: 75, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 50, posY: 78, label: 'CB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 78, posY: 75, label: 'RB' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 22, posY: 48, label: 'LM' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 50, posY: 48, label: 'CM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 78, posY: 48, label: 'RM' },
+            { slotIndex: 7, isGoalkeeper: false, posX: 36, posY: 24, label: 'LST' },
+            { slotIndex: 8, isGoalkeeper: false, posX: 64, posY: 24, label: 'RST' }
+          ]
+        }
+      ],
+      10: [
+        {
+          name: '3-4-2',
+          playersPerSide: 10,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 22, posY: 75, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 50, posY: 78, label: 'CB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 78, posY: 75, label: 'RB' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 18, posY: 48, label: 'LM' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 40, posY: 50, label: 'LCM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 60, posY: 50, label: 'RCM' },
+            { slotIndex: 7, isGoalkeeper: false, posX: 82, posY: 48, label: 'RM' },
+            { slotIndex: 8, isGoalkeeper: false, posX: 36, posY: 22, label: 'LST' },
+            { slotIndex: 9, isGoalkeeper: false, posX: 64, posY: 22, label: 'RST' }
+          ]
+        }
+      ],
+      11: [
+        {
+          name: '4-4-2',
+          playersPerSide: 11,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 16, posY: 75, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 38, posY: 78, label: 'LCB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 62, posY: 78, label: 'RCB' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 84, posY: 75, label: 'RB' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 16, posY: 48, label: 'LM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 38, posY: 50, label: 'LCM' },
+            { slotIndex: 7, isGoalkeeper: false, posX: 62, posY: 50, label: 'RCM' },
+            { slotIndex: 8, isGoalkeeper: false, posX: 84, posY: 48, label: 'RM' },
+            { slotIndex: 9, isGoalkeeper: false, posX: 38, posY: 24, label: 'LST' },
+            { slotIndex: 10, isGoalkeeper: false, posX: 62, posY: 24, label: 'RST' }
+          ]
+        },
+        {
+          name: '4-3-3',
+          playersPerSide: 11,
+          slots: [
+            { slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' },
+            { slotIndex: 1, isGoalkeeper: false, posX: 16, posY: 75, label: 'LB' },
+            { slotIndex: 2, isGoalkeeper: false, posX: 38, posY: 78, label: 'LCB' },
+            { slotIndex: 3, isGoalkeeper: false, posX: 62, posY: 78, label: 'RCB' },
+            { slotIndex: 4, isGoalkeeper: false, posX: 84, posY: 75, label: 'RB' },
+            { slotIndex: 5, isGoalkeeper: false, posX: 28, posY: 50, label: 'LCM' },
+            { slotIndex: 6, isGoalkeeper: false, posX: 50, posY: 58, label: 'CDM' },
+            { slotIndex: 7, isGoalkeeper: false, posX: 72, posY: 50, label: 'RCM' },
+            { slotIndex: 8, isGoalkeeper: false, posX: 18, posY: 22, label: 'LW' },
+            { slotIndex: 9, isGoalkeeper: false, posX: 50, posY: 20, label: 'ST' },
+            { slotIndex: 10, isGoalkeeper: false, posX: 82, posY: 22, label: 'RW' }
+          ]
+        }
+      ]
+    };
+
+    // State
+    let database = JSON.parse(localStorage.getItem('socceraid_formations') || 'null') || DEFAULT_FORMATIONS_DATABASE;
+    let currentFormat = 3;
+    let currentFormationName = '1-1';
+    let showOpponent = true;
+
+    // Track active DOM token elements
+    const tokenElements = new Map(); // key -> { el, slot, side }
+
+    // Mapping formulas (same as FootballPitch.tsx)
+    function toScreenPosition(side, posX, posY) {
+      const top = posX;
+      const left = side === 'away' ? (100 - posY) / 2 : 50 + posY / 2;
+      return { left, top };
+    }
+
+    function fromScreenPosition(side, screenLeftPercent, screenTopPercent) {
+      const posX = Math.max(3, Math.min(97, screenTopPercent));
+      let posY;
+      if (side === 'away') {
+        posY = 100 - (2 * screenLeftPercent);
+      } else {
+        posY = 2 * (screenLeftPercent - 50);
+      }
+      posY = Math.max(0, Math.min(100, posY));
+      return { posX: Math.round(posX), posY: Math.round(posY) };
+    }
+
+    function getCurrentFormation() {
+      const list = database[currentFormat] || [];
+      return list.find(f => f.name === currentFormationName) || list[0] || null;
+    }
+
+    function initFormatPills() {
+      const container = document.getElementById('format-pills');
+      container.innerHTML = '';
+      [3, 4, 5, 6, 7, 8, 9, 10, 11].forEach(format => {
+        const btn = document.createElement('button');
+        btn.textContent = `${format}v${format}`;
+        btn.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+          format === currentFormat 
+            ? 'bg-emerald-600 text-white shadow-md' 
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        }`;
+        btn.onclick = () => {
+          currentFormat = format;
+          const formations = database[currentFormat] || [];
+          currentFormationName = formations[0]?.name || '';
+          initFormatPills();
+          initFormationSelect();
+          buildPitch();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function initFormationSelect() {
+      const select = document.getElementById('formation-select');
+      select.innerHTML = '';
+      const list = database[currentFormat] || [];
+      list.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.name;
+        opt.textContent = f.name;
+        opt.selected = f.name === currentFormationName;
+        select.appendChild(opt);
+      });
+      select.onchange = (e) => {
+        currentFormationName = e.target.value;
+        buildPitch();
+      };
+    }
+
+    // Build pitch tokens
+    function buildPitch() {
+      const pitch = document.getElementById('pitch-slots');
+      pitch.innerHTML = '';
+      tokenElements.clear();
+
+      const formation = getCurrentFormation();
+      if (!formation) return;
+
+      document.getElementById('summary-formation-name').textContent = formation.name;
+      document.getElementById('summary-format-name').textContent = `${currentFormat}v${currentFormat}`;
+      document.getElementById('summary-slot-count').textContent = `${formation.slots.length} Players`;
+
+      // Render Team B (Away - Left half, draggable)
+      formation.slots.forEach(slot => {
+        const { left, top } = toScreenPosition('away', slot.posX, slot.posY);
+        const token = createDraggableToken('away', slot, left, top);
+        pitch.appendChild(token);
+        tokenElements.set(`away-${slot.slotIndex}`, { el: token, slot, side: 'away' });
+      });
+
+      // Render Team A (Home - Right half, mirrored opponent preview)
+      if (showOpponent) {
+        document.getElementById('home-badge').style.display = 'flex';
+        formation.slots.forEach(slot => {
+          const { left, top } = toScreenPosition('home', slot.posX, slot.posY);
+          const token = createMirroredToken('home', slot, left, top);
+          pitch.appendChild(token);
+          tokenElements.set(`home-${slot.slotIndex}`, { el: token, slot, side: 'home' });
+        });
+      } else {
+        document.getElementById('home-badge').style.display = 'none';
+      }
+
+      checkCollisions();
+      updateTable();
+    }
+
+    // Create a real fluid draggable token with POINTER CAPTURE
+    function createDraggableToken(side, slot, left, top) {
+      const el = document.createElement('div');
+      el.className = 'player-token absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none';
+      el.style.left = `${left}%`;
+      el.style.top = `${top}%`;
+      el.dataset.slotIndex = slot.slotIndex;
+      el.dataset.side = side;
+
+      const isGk = slot.isGoalkeeper;
+      const bgColor = isGk ? '#475569' : '#2563eb';
+      const borderColor = isGk ? '#334155' : '#1d4ed8';
+
+      el.innerHTML = `
+        <div class="w-11 h-11 rounded-full border-2 flex items-center justify-center relative shadow-lg"
+             style="background-color: ${bgColor}; border-color: ${borderColor};">
+          ${isGk 
+            ? '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke-width="2"/><circle cx="12" cy="12" r="2" stroke-width="2"/></svg>'
+            : '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>'
+          }
+        </div>
+        <div class="mt-1 px-2 py-0.5 rounded-full bg-black/85 text-center shadow-md border border-white/10">
+          <span class="text-[10px] font-extrabold text-white block truncate leading-tight">${slot.label || (isGk ? 'GK' : `P${slot.slotIndex}`)}</span>
+        </div>
+      `;
+
+      // True fluid pointer drag logic with POINTER CAPTURE
+      let isDragging = false;
+      const tooltip = document.getElementById('drag-tooltip');
+      const tooltipText = document.getElementById('tooltip-text');
+
+      el.onpointerdown = (e) => {
+        e.preventDefault();
+        isDragging = true;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('is-dragging');
+        tooltip.classList.remove('hidden');
+        updateTooltip(e.clientX, e.clientY, slot);
+      };
+
+      el.onpointermove = (e) => {
+        if (!isDragging) return;
+
+        const pitch = document.getElementById('pitch-container');
+        const rect = pitch.getBoundingClientRect();
+
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Keep inside away half (left <= 46.5% so they don't cross halfway line)
+        let screenLeft = (x / rect.width) * 100;
+        let screenTop = (y / rect.height) * 100;
+
+        screenLeft = Math.max(2, Math.min(46.5, screenLeft));
+        screenTop = Math.max(5, Math.min(95, screenTop));
+
+        // Directly move this element
+        el.style.left = `${screenLeft}%`;
+        el.style.top = `${screenTop}%`;
+
+        // Update slot model
+        const { posX, posY } = fromScreenPosition('away', screenLeft, screenTop);
+        slot.posX = posX;
+        slot.posY = posY;
+
+        // Sync mirrored Home token in real-time
+        const homeToken = tokenElements.get(`home-${slot.slotIndex}`);
+        if (homeToken) {
+          const homePos = toScreenPosition('home', slot.posX, slot.posY);
+          homeToken.el.style.left = `${homePos.left}%`;
+          homeToken.el.style.top = `${homePos.top}%`;
+        }
+
+        updateTooltip(e.clientX, e.clientY, slot);
+        checkCollisions();
+      };
+
+      el.onpointerup = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.releasePointerCapture(e.pointerId);
+        el.classList.remove('is-dragging');
+        tooltip.classList.add('hidden');
+
+        saveToLocalStorage();
+        updateTable();
+        checkCollisions();
+      };
+
+      el.onpointercancel = el.onpointerup;
+
+      return el;
+    }
+
+    // Mirrored Team A token (display-only reflection)
+    function createMirroredToken(side, slot, left, top) {
+      const el = document.createElement('div');
+      el.className = 'player-token absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none opacity-85 pointer-events-none';
+      el.style.left = `${left}%`;
+      el.style.top = `${top}%`;
+
+      const isGk = slot.isGoalkeeper;
+      const bgColor = isGk ? '#475569' : '#ea580c';
+      const borderColor = isGk ? '#334155' : '#c2410c';
+
+      el.innerHTML = `
+        <div class="w-11 h-11 rounded-full border-2 flex items-center justify-center relative shadow-lg"
+             style="background-color: ${bgColor}; border-color: ${borderColor};">
+          ${isGk 
+            ? '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke-width="2"/><circle cx="12" cy="12" r="2" stroke-width="2"/></svg>'
+            : '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>'
+          }
+        </div>
+        <div class="mt-1 px-2 py-0.5 rounded-full bg-black/85 text-center shadow-md border border-white/10">
+          <span class="text-[10px] font-extrabold text-white block truncate leading-tight">${slot.label || (isGk ? 'GK' : `P${slot.slotIndex}`)}</span>
+        </div>
+      `;
+      return el;
+    }
+
+    function updateTooltip(clientX, clientY, slot) {
+      const tooltip = document.getElementById('drag-tooltip');
+      const tooltipText = document.getElementById('tooltip-text');
+      const pitch = document.getElementById('pitch-container');
+      const rect = pitch.getBoundingClientRect();
+
+      tooltip.style.left = `${clientX - rect.left}px`;
+      tooltip.style.top = `${clientY - rect.top}px`;
+
+      const nearCenter = slot.posY < 16;
+      tooltipText.innerHTML = `
+        <span class="${nearCenter ? 'text-amber-400' : 'text-emerald-400'}">${slot.label || 'Player'}:</span>
+        <span>pos: ${slot.posX}% | depth: ${slot.posY}%</span>
+        ${nearCenter ? '<span class="text-amber-400">⚠️ Center limit</span>' : ''}
+      `;
+    }
+
+    // Live Collision Detection between all tokens on pitch
+    function checkCollisions() {
+      const banner = document.getElementById('collision-banner');
+      const textEl = document.getElementById('collision-text');
+      const countEl = document.getElementById('collision-count');
+
+      const tokens = Array.from(tokenElements.values());
+      const collisions = [];
+
+      for (let i = 0; i < tokens.length; i++) {
+        for (let j = i + 1; j < tokens.length; j++) {
+          const t1 = tokens[i];
+          const t2 = tokens[j];
+
+          const rect1 = t1.el.getBoundingClientRect();
+          const rect2 = t2.el.getBoundingClientRect();
+
+          const c1x = rect1.left + rect1.width / 2;
+          const c1y = rect1.top + rect1.height / 2;
+          const c2x = rect2.left + rect2.width / 2;
+          const c2y = rect2.top + rect2.height / 2;
+
+          const dist = Math.sqrt((c1x - c2x) ** 2 + (c1y - c2y) ** 2);
+
+          // 44px token diameter + 4px safety buffer
+          if (dist < 46) {
+            collisions.push({
+              t1,
+              t2,
+              dist: Math.round(dist),
+              isCrossTeam: t1.side !== t2.side
+            });
+          }
+        }
+      }
+
+      if (collisions.length > 0) {
+        banner.className = 'p-3 rounded-2xl border bg-red-950/75 border-red-500/50 text-red-200 text-xs font-medium flex items-center justify-between transition-all shadow-md';
+        const cross = collisions.find(c => c.isCrossTeam);
+        if (cross) {
+          textEl.innerHTML = `⚠️ <strong>Opposing Overlap Alert!</strong> Attacker is colliding with opposing attacker at the halfway line (${cross.dist}px apart). Drag them back toward defense!`;
+        } else {
+          const first = collisions[0];
+          textEl.innerHTML = `⚠️ <strong>Teammate Overlap!</strong> ${first.t1.slot.label || 'Player'} and ${first.t2.slot.label || 'Player'} are overlapping (${first.dist}px apart). Drag them further apart.`;
+        }
+        countEl.textContent = `${collisions.length} Overlap${collisions.length > 1 ? 's' : ''}`;
+        countEl.className = 'text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-red-900/60 text-red-300 font-bold';
+      } else {
+        banner.className = 'p-3 rounded-2xl border bg-emerald-950/60 border-emerald-500/40 text-emerald-200 text-xs font-medium flex items-center justify-between transition-all shadow-md';
+        textEl.innerHTML = `✅ <strong>Zero Overlaps Detected!</strong> All players have clean separation and plenty of space across the pitch and halfway line.`;
+        countEl.textContent = 'All Clear';
+        countEl.className = 'text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-bold';
+      }
+    }
+
+    // Clean summary table (NO SLIDERS)
+    function updateTable() {
+      const tbody = document.getElementById('slots-table-body');
+      tbody.innerHTML = '';
+      const formation = getCurrentFormation();
+      if (!formation) return;
+
+      formation.slots.forEach(slot => {
+        const { left, top } = toScreenPosition('away', slot.posX, slot.posY);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/80 transition';
+
+        let areaDesc = 'Midfield';
+        if (slot.isGoalkeeper) areaDesc = 'Goal Line';
+        else if (slot.posY >= 65) areaDesc = 'Deep Defense';
+        else if (slot.posY <= 30) areaDesc = 'Forward / Attacking';
+
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-bold">${slot.slotIndex}</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] ${slot.isGoalkeeper ? 'bg-slate-700 text-slate-200' : 'bg-blue-900/60 text-blue-300'} font-bold">
+              ${slot.isGoalkeeper ? 'Goalkeeper' : 'Outfield'}
+            </span>
+          </td>
+          <td class="py-2.5 px-3">
+            <input type="text" value="${slot.label || ''}" class="bg-slate-800 border border-slate-700 text-white rounded px-2 py-0.5 text-xs w-20 font-bold" data-slot="${slot.slotIndex}">
+          </td>
+          <td class="py-2.5 px-3 text-emerald-400 font-bold">${slot.posX}%</td>
+          <td class="py-2.5 px-3 text-amber-400 font-bold">${slot.posY}%</td>
+          <td class="py-2.5 px-3 text-slate-300 font-sans">${areaDesc}</td>
+          <td class="py-2.5 px-3 text-right">
+            <span class="text-slate-400 text-[11px]">Drag on pitch 🖐️</span>
+          </td>
+        `;
+
+        const labelInput = tr.querySelector('input');
+        labelInput.oninput = (e) => {
+          slot.label = e.target.value;
+          saveToLocalStorage();
+          buildPitch();
+        };
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function saveToLocalStorage() {
+      localStorage.setItem('socceraid_formations', JSON.stringify(database));
+    }
+
+    // Modal Events
+    document.getElementById('btn-export').onclick = () => {
+      const modal = document.getElementById('modal-json');
+      const textarea = document.getElementById('json-output');
+      document.getElementById('copy-status').textContent = '';
+      textarea.value = JSON.stringify(database, null, 2);
+      modal.classList.remove('hidden');
+    };
+
+    document.getElementById('btn-close-modal').onclick = () => {
+      document.getElementById('modal-json').classList.add('hidden');
+    };
+
+    document.getElementById('btn-copy-clipboard').onclick = () => {
+      const textarea = document.getElementById('json-output');
+      textarea.select();
+      navigator.clipboard.writeText(textarea.value).then(() => {
+        document.getElementById('copy-status').textContent = '✅ Copied to clipboard! Paste it into chat.';
+      });
+    };
+
+    document.getElementById('btn-download-json').onclick = () => {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(database, null, 2));
+      const dlAnchor = document.createElement('a');
+      dlAnchor.setAttribute('href', dataStr);
+      dlAnchor.setAttribute('download', 'socceraid-formations.json');
+      dlAnchor.click();
+    };
+
+    document.getElementById('btn-reset').onclick = () => {
+      if (confirm('Reset all formations back to clean default anti-collision presets?')) {
+        database = JSON.parse(JSON.stringify(DEFAULT_FORMATIONS_DATABASE));
+        saveToLocalStorage();
+        initFormatPills();
+        initFormationSelect();
+        buildPitch();
+      }
+    };
+
+    document.getElementById('btn-import-modal').onclick = () => {
+      document.getElementById('modal-import').classList.remove('hidden');
+    };
+    document.getElementById('btn-close-import').onclick = () => {
+      document.getElementById('modal-import').classList.add('hidden');
+    };
+    document.getElementById('btn-apply-import').onclick = () => {
+      try {
+        const val = document.getElementById('json-input').value;
+        const parsed = JSON.parse(val);
+        database = parsed;
+        saveToLocalStorage();
+        document.getElementById('modal-import').classList.add('hidden');
+        initFormatPills();
+        initFormationSelect();
+        buildPitch();
+        alert('Formations successfully imported!');
+      } catch (err) {
+        alert('Invalid JSON: ' + err.message);
+      }
+    };
+
+    document.getElementById('btn-new-formation').onclick = () => {
+      const name = prompt(`Enter name for new ${currentFormat}v${currentFormat} formation (e.g. 2-2, 3-1):`);
+      if (!name) return;
+      if (!database[currentFormat]) database[currentFormat] = [];
+      
+      const slots = [];
+      slots.push({ slotIndex: 0, isGoalkeeper: true, posX: 50, posY: 94, label: 'GK' });
+      const outfieldCount = currentFormat - 1;
+      for (let i = 1; i <= outfieldCount; i++) {
+        const step = 80 / (outfieldCount + 1);
+        slots.push({
+          slotIndex: i,
+          isGoalkeeper: false,
+          posX: Math.round(10 + i * step),
+          posY: 52,
+          label: `P${i}`
+        });
+      }
+
+      database[currentFormat].push({
+        name,
+        playersPerSide: currentFormat,
+        slots
+      });
+      currentFormationName = name;
+      saveToLocalStorage();
+      initFormationSelect();
+      buildPitch();
+    };
+
+    document.getElementById('btn-rename').onclick = () => {
+      const formation = getCurrentFormation();
+      if (!formation) return;
+      const newName = prompt('Enter new formation name:', formation.name);
+      if (!newName || newName === formation.name) return;
+      formation.name = newName;
+      currentFormationName = newName;
+      saveToLocalStorage();
+      initFormationSelect();
+      buildPitch();
+    };
+
+    document.getElementById('chk-show-both').onchange = (e) => {
+      showOpponent = e.target.checked;
+      buildPitch();
+    };
+
+    // Initialize
+    initFormatPills();
+    initFormationSelect();
+    buildPitch();
+  </script>
+</body>
+</html>

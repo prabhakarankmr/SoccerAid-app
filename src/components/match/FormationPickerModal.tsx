@@ -80,18 +80,28 @@ export function FormationPickerModal({
                     onClose();
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={`Select formation ${formation.name}`}
-                  accessibilityHint={`Changes ${teamName} to ${formation.name}`}
+                  accessibilityLabel={`Select formation ${formation.name}${
+                    isSelected ? ', currently active. Tap to reset positions' : ''
+                  }`}
+                  accessibilityHint={`Sets ${teamName} to ${formation.name} and resets tactical positions to defaults`}
                   className={`mt-2 flex-row items-center justify-between rounded-xl border p-3.5 ${
                     isSelected
-                      ? 'border-black bg-gray-50'
+                      ? 'border-emerald-500 bg-emerald-50/50'
                       : 'border-gray-200 bg-white active:bg-gray-50'
                   }`}
                 >
-                  <View>
-                    <Text className="text-base font-bold text-black">{formation.name}</Text>
-                    <Text className="text-xs text-gray-500">
+                  <View className="flex-1 pr-2">
+                    <View className="flex-row items-center gap-2">
+                      <Text className="text-base font-bold text-black">{formation.name}</Text>
+                      {isSelected ? (
+                        <View className="rounded-full bg-emerald-100 px-2 py-0.5">
+                          <Text className="text-[10px] font-bold text-emerald-800">Active</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text className="mt-0.5 text-xs text-gray-500">
                       1 Goalkeeper + {outfieldSlots} Outfield
+                      {isSelected ? ' • Tap to reset positions to default' : ''}
                     </Text>
                   </View>
 

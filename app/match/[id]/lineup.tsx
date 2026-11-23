@@ -1,9 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import Clock from 'lucide-react-native/icons/clock';
-import Pencil from 'lucide-react-native/icons/pencil';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { apiClient, ApiError } from '../../../src/api/client';
@@ -15,18 +23,13 @@ import {
 } from '../../../src/components/match/EndedMatchView';
 import { FormationPickerModal } from '../../../src/components/match/FormationPickerModal';
 import { LineupListView } from '../../../src/components/match/LineupListView';
-import { LineupPitchView, SwapSelection } from '../../../src/components/match/LineupPitchView';
+import { LineupPitchView, SelectedPlayer } from '../../../src/components/match/LineupPitchView';
 import { FormationSlot, slotsFor, useFormations } from '../../../src/hooks/useMeta';
-import {
-  LineupPlayerInput,
-  useMatch,
-  useSetLineups,
-  useUpdateMatch,
-} from '../../../src/hooks/useMatches';
+import { LineupPlayerInput, useMatch, useSetLineups } from '../../../src/hooks/useMatches';
 import { PlayerSummary } from '../../../src/hooks/usePlayers';
 import { TeamDetail, TeamRosterPlayer, useTeam } from '../../../src/hooks/useTeams';
 
-const HALF_DURATION_PRESETS_MIN = [5, 10, 15, 20, 25, 30, 35, 40, 45];
+const pitchBg = require('../../../assets/pitch-bg.jpg');
 
 type SlotAssignments = Record<number, string | null>;
 
@@ -69,6 +72,30 @@ function slotIndexForPlayer(assignments: SlotAssignments, playerId: string): num
   return entry ? Number(entry[0]) : null;
 }
 
+function swapPlayers(
+  assignments: SlotAssignments,
+  playerIdA: string,
+  playerIdB: string,
+): SlotAssignments {
+  if (playerIdA === playerIdB) return assignments;
+
+  const slotA = slotIndexForPlayer(assignments, playerIdA);
+  const slotB = slotIndexForPlayer(assignments, playerIdB);
+
+  const next = { ...assignments };
+
+  if (slotA !== null && slotB !== null) {
+    next[slotA] = playerIdB;
+    next[slotB] = playerIdA;
+  } else if (slotA !== null && slotB === null) {
+    next[slotA] = playerIdB;
+  } else if (slotA === null && slotB !== null) {
+    next[slotB] = playerIdA;
+  }
+
+  return next;
+}
+
 function benchedPlayers(
   available: TeamRosterPlayer[],
   assignments: SlotAssignments,
@@ -81,6 +108,7 @@ function reassignToNewFormation(
   oldSlots: FormationSlot[],
   newSlots: FormationSlot[],
   currentAssignments: SlotAssignments,
+  available: TeamRosterPlayer[],
 ): SlotAssignments {
   const newAssignments: SlotAssignments = {};
 
@@ -91,19 +119,27 @@ function reassignToNewFormation(
   for (const slot of oldSlots) {
     if (slot.isGoalkeeper) continue;
     const pid = currentAssignments[slot.slotIndex];
-    if (pid) {
+    if (pid && pid !== currentGkPlayerId) {
       currentOutfieldIds.push(pid);
     }
   }
 
+  const assignedSet = new Set(
+    [currentGkPlayerId, ...currentOutfieldIds].filter((id): id is string => id !== null),
+  );
+  const unassignedQueue = available
+    .filter((player) => !assignedSet.has(player.id))
+    .map((player) => player.id);
+
   const newGkSlot = newSlots.find((s) => s.isGoalkeeper);
   if (newGkSlot) {
-    newAssignments[newGkSlot.slotIndex] = currentGkPlayerId ?? currentOutfieldIds.shift() ?? null;
+    newAssignments[newGkSlot.slotIndex] =
+      currentGkPlayerId ?? currentOutfieldIds.shift() ?? unassignedQueue.shift() ?? null;
   }
 
   for (const slot of newSlots) {
     if (slot.isGoalkeeper) continue;
-    newAssignments[slot.slotIndex] = currentOutfieldIds.shift() ?? null;
+    newAssignments[slot.slotIndex] = currentOutfieldIds.shift() ?? unassignedQueue.shift() ?? null;
   }
 
   return newAssignments;
@@ -157,12 +193,9 @@ export default function MatchLineup() {
   const [homeExtras, setHomeExtras] = useState<TeamRosterPlayer[]>([]);
   const [awayExtras, setAwayExtras] = useState<TeamRosterPlayer[]>([]);
 
-  const [swapSelection, setSwapSelection] = useState<SwapSelection | null>(null);
-  const [isEditingDuration, setIsEditingDuration] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<SelectedPlayer | null>(null);
 
   const setLineups = useSetLineups(id);
-  const updateMatch = useUpdateMatch(id);
 
   const addGuestMutation = useMutation({
     mutationFn: async ({ teamId, displayName }: { teamId: string; displayName: string }) => {
@@ -172,7 +205,12 @@ export default function MatchLineup() {
     },
   });
 
+  // Allow auto-rotation while on this screen; restore portrait lock upon leaving
   useEffect(() => {
+    if (Platform.OS !== 'web') {
+      void ScreenOrientation.unlockAsync().catch(() => {});
+    }
+
     return () => {
       if (Platform.OS !== 'web') {
         void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(
@@ -182,30 +220,23 @@ export default function MatchLineup() {
     };
   }, []);
 
-  async function toggleLandscape() {
-    const next = !isLandscape;
-    setIsLandscape(next);
-
-    if (Platform.OS === 'web') return;
-
-    try {
-      await ScreenOrientation.lockAsync(
-        next
-          ? ScreenOrientation.OrientationLock.LANDSCAPE
-          : ScreenOrientation.OrientationLock.PORTRAIT_UP,
-      );
-    } catch (orientationError) {
-      console.error('Screen orientation lock failed:', orientationError);
-    }
-  }
-
   const homeAvailable = useMemo(
     () => [...filterAvailable(homeTeam?.players ?? [], homePlayerIds), ...homeExtras],
     [homeTeam, homePlayerIds, homeExtras],
   );
+
+  const homePlayerIdSet = useMemo(
+    () => new Set(homeAvailable.map((player) => player.id)),
+    [homeAvailable],
+  );
+
+  // Safety filter: ensure no player in Team A appears in Team B's roster/bench
   const awayAvailable = useMemo(
-    () => [...filterAvailable(awayTeam?.players ?? [], awayPlayerIds), ...awayExtras],
-    [awayTeam, awayPlayerIds, awayExtras],
+    () =>
+      [...filterAvailable(awayTeam?.players ?? [], awayPlayerIds), ...awayExtras].filter(
+        (player) => !homePlayerIdSet.has(player.id),
+      ),
+    [awayTeam, awayPlayerIds, awayExtras, homePlayerIdSet],
   );
 
   const effectiveHomeFormation =
@@ -244,11 +275,30 @@ export default function MatchLineup() {
   function handleSelectFormation(side: PitchSide, newFormationName: string) {
     if (!formationsQuery.data) return;
 
-    const oldSlots = side === 'home' ? homeSlots : awaySlots;
+    const currentFormation = side === 'home' ? effectiveHomeFormation : effectiveAwayFormation;
+    const available = side === 'home' ? homeAvailable : awayAvailable;
     const newSlots = slotsFor(formationsQuery.data, newFormationName);
+
+    // Auto-Reset: selecting the active formation resets all positions to default
+    if (newFormationName === currentFormation) {
+      if (side === 'home') {
+        setHomeOverrides(null);
+      } else {
+        setAwayOverrides(null);
+      }
+      setSelectedPlayer(null);
+      return;
+    }
+
+    const oldSlots = side === 'home' ? homeSlots : awaySlots;
     const currentAssignments = side === 'home' ? homeAssignments : awayAssignments;
 
-    const updatedAssignments = reassignToNewFormation(oldSlots, newSlots, currentAssignments);
+    const updatedAssignments = reassignToNewFormation(
+      oldSlots,
+      newSlots,
+      currentAssignments,
+      available,
+    );
 
     if (side === 'home') {
       setCustomHomeFormation(newFormationName);
@@ -257,132 +307,89 @@ export default function MatchLineup() {
       setCustomAwayFormation(newFormationName);
       setAwayOverrides(updatedAssignments);
     }
+
+    setSelectedPlayer(null);
   }
 
-  function swapPlayersById(side: PitchSide, playerIdA: string, playerIdB: string) {
-    const assignments = side === 'home' ? homeAssignments : awayAssignments;
+  function handlePlayerTap(side: PitchSide, playerId: string) {
+    if (!selectedPlayer) {
+      setSelectedPlayer({ side, playerId });
+      return;
+    }
+
+    if (selectedPlayer.side === side && selectedPlayer.playerId === playerId) {
+      setSelectedPlayer(null);
+      return;
+    }
+
+    if (selectedPlayer.side !== side) {
+      setSelectedPlayer({ side, playerId });
+      return;
+    }
+
+    const currentAssignments = side === 'home' ? homeAssignments : awayAssignments;
     const setOverrides = side === 'home' ? setHomeOverrides : setAwayOverrides;
 
-    const slotA = slotIndexForPlayer(assignments, playerIdA);
-    const slotB = slotIndexForPlayer(assignments, playerIdB);
-
-    if (slotA !== null && slotB !== null) {
-      setOverrides({
-        ...assignments,
-        [slotA]: playerIdB,
-        [slotB]: playerIdA,
-      });
-      return;
-    }
-
-    if (slotA !== null && slotB === null) {
-      setOverrides({
-        ...assignments,
-        [slotA]: playerIdB,
-      });
-      return;
-    }
-
-    if (slotA === null && slotB !== null) {
-      setOverrides({
-        ...assignments,
-        [slotB]: playerIdA,
-      });
-    }
-  }
-
-  function handleSelectForSwap(side: PitchSide, playerId: string, displayName: string) {
-    if (swapSelection === null) {
-      setSwapSelection({ side, playerId, displayName });
-      return;
-    }
-
-    if (swapSelection.side === side && swapSelection.playerId === playerId) {
-      setSwapSelection(null);
-      return;
-    }
-
-    if (swapSelection.side !== side) {
-      setSwapSelection({ side, playerId, displayName });
-      return;
-    }
-
-    // Both on same side: execute swap!
-    swapPlayersById(side, swapSelection.playerId, playerId);
-    setSwapSelection(null);
+    setOverrides(swapPlayers(currentAssignments, selectedPlayer.playerId, playerId));
+    setSelectedPlayer(null);
   }
 
   function handleSwapSlots(side: PitchSide, slotA: number, slotB: number) {
     const assignments = side === 'home' ? homeAssignments : awayAssignments;
     const setOverrides = side === 'home' ? setHomeOverrides : setAwayOverrides;
 
-    setOverrides({
-      ...assignments,
-      [slotA]: assignments[slotB] ?? null,
-      [slotB]: assignments[slotA] ?? null,
-    });
-  }
+    const playerA = assignments[slotA];
+    const playerB = assignments[slotB];
 
-  function makeGoalkeeper(side: PitchSide, playerId: string) {
-    const slots = side === 'home' ? homeSlots : awaySlots;
-    const assignments = side === 'home' ? homeAssignments : awayAssignments;
-    const setOverrides = side === 'home' ? setHomeOverrides : setAwayOverrides;
-    const gkSlot = slots.find((slot) => slot.isGoalkeeper);
-
-    if (!gkSlot) return;
-
-    const currentSlot = slotIndexForPlayer(assignments, playerId);
-
-    if (currentSlot === gkSlot.slotIndex) return;
-
-    if (currentSlot !== null) {
-      handleSwapSlots(side, currentSlot, gkSlot.slotIndex);
-      return;
+    if (playerA && playerB) {
+      setOverrides(swapPlayers(assignments, playerA, playerB));
+    } else {
+      setOverrides({
+        ...assignments,
+        [slotA]: playerB ?? null,
+        [slotB]: playerA ?? null,
+      });
     }
-
-    // Benched player becomes GK; previous GK moves to bench
-    setOverrides({
-      ...assignments,
-      [gkSlot.slotIndex]: playerId,
-    });
+    setSelectedPlayer(null);
   }
 
   function handleSlotTap(side: PitchSide, slotIndex: number) {
     const assignments = side === 'home' ? homeAssignments : awayAssignments;
     const occupantId = assignments[slotIndex];
 
-    if (swapSelection && swapSelection.side === side) {
-      if (occupantId === swapSelection.playerId) {
-        setSwapSelection(null);
-        return;
-      }
-      if (occupantId) {
-        swapPlayersById(side, swapSelection.playerId, occupantId);
-      } else {
-        const setOverrides = side === 'home' ? setHomeOverrides : setAwayOverrides;
-        setOverrides({
-          ...assignments,
-          [slotIndex]: swapSelection.playerId,
-        });
-      }
-      setSwapSelection(null);
+    if (occupantId) {
+      handlePlayerTap(side, occupantId);
       return;
     }
 
-    if (occupantId) {
-      makeGoalkeeper(side, occupantId);
+    if (selectedPlayer && selectedPlayer.side === side) {
+      const setOverrides = side === 'home' ? setHomeOverrides : setAwayOverrides;
+      const oldSlot = slotIndexForPlayer(assignments, selectedPlayer.playerId);
+      const next = { ...assignments };
+      if (oldSlot !== null) {
+        next[oldSlot] = null;
+      }
+      next[slotIndex] = selectedPlayer.playerId;
+      setOverrides(next);
+      setSelectedPlayer(null);
+      return;
     }
+
+    handleAssignNext(side, slotIndex);
   }
 
   function handleAssignNext(side: PitchSide, slotIndex: number) {
-    if (swapSelection && swapSelection.side === side) {
+    if (selectedPlayer && selectedPlayer.side === side) {
       const assignments = side === 'home' ? homeAssignments : awayAssignments;
       const setOverrides = side === 'home' ? setHomeOverrides : setAwayOverrides;
-      setOverrides({
-        ...assignments,
-        [slotIndex]: swapSelection.playerId,
-      });
-      setSwapSelection(null);
+      const oldSlot = slotIndexForPlayer(assignments, selectedPlayer.playerId);
+      const next = { ...assignments };
+      if (oldSlot !== null) {
+        next[oldSlot] = null;
+      }
+      next[slotIndex] = selectedPlayer.playerId;
+      setOverrides(next);
+      setSelectedPlayer(null);
       return;
     }
 
@@ -395,14 +402,6 @@ export default function MatchLineup() {
       ...assignments,
       [slotIndex]: bench[0].id,
     });
-  }
-
-  function resetPositions() {
-    setHomeOverrides(null);
-    setAwayOverrides(null);
-    setCustomHomeFormation(null);
-    setCustomAwayFormation(null);
-    setSwapSelection(null);
   }
 
   async function handleAddGuest(side: PitchSide, displayName: string) {
@@ -426,8 +425,8 @@ export default function MatchLineup() {
 
   if (isMatchLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#000000" />
+      <View className="flex-1 items-center justify-center bg-[#0d2015]">
+        <ActivityIndicator color="#ffffff" />
       </View>
     );
   }
@@ -435,8 +434,8 @@ export default function MatchLineup() {
   if (!match) {
     const notFound = error instanceof ApiError && error.code === 'NOT_FOUND';
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-black">
+      <View className="flex-1 items-center justify-center bg-[#0d2015] px-6">
+        <Text className="text-white text-base font-semibold">
           {notFound ? 'Match not found.' : 'Could not load this match — try again.'}
         </Text>
         <Pressable
@@ -444,9 +443,9 @@ export default function MatchLineup() {
           accessibilityRole="button"
           accessibilityLabel="Go to Home"
           accessibilityHint="Returns to the home screen"
-          className="mt-4 rounded-lg border border-gray-300 px-4 py-2"
+          className="mt-4 rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 active:bg-white/20"
         >
-          <Text className="font-bold text-black">Go to Home</Text>
+          <Text className="font-bold text-white">Go to Home</Text>
         </Pressable>
       </View>
     );
@@ -454,8 +453,8 @@ export default function MatchLineup() {
 
   if (!homeTeam || !awayTeam) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#000000" />
+      <View className="flex-1 items-center justify-center bg-[#0d2015]">
+        <ActivityIndicator color="#ffffff" />
       </View>
     );
   }
@@ -520,220 +519,176 @@ export default function MatchLineup() {
     };
   });
 
-  if (isLandscape) {
-    return (
-      <LineupPitchView
-        homeTeamName={homeTeam.name}
-        awayTeamName={awayTeam.name}
-        homeFormation={effectiveHomeFormation}
-        awayFormation={effectiveAwayFormation}
-        onOpenFormationPicker={(side) => setFormationModalSide(side)}
-        homePitchSlots={homePitchSlots}
-        awayPitchSlots={awayPitchSlots}
-        homeBench={homeBench}
-        awayBench={awayBench}
-        swapSelection={swapSelection}
-        onSelectForSwap={handleSelectForSwap}
-        onCancelSwap={() => setSwapSelection(null)}
-        onSlotTap={handleSlotTap}
-        onSwapSlots={handleSwapSlots}
-        onAssignNext={handleAssignNext}
-        onResetPositions={resetPositions}
-        onToggleLandscape={() => void toggleLandscape()}
-        isLandscape={true}
-        onAddGuest={handleAddGuest}
-      />
-    );
-  }
-
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerClassName="px-5 pb-16 pt-16">
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Back to Match Setup"
-        accessibilityHint="Returns to team and format selection"
-        className="self-start rounded-lg border border-gray-300 px-3.5 py-1.5 active:bg-gray-100"
-      >
-        <Text className="font-bold text-black">← Back</Text>
-      </Pressable>
+    <View
+      style={{
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        backgroundColor: '#0d2015',
+      }}
+    >
+      <Image
+        source={pitchBg}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]} />
 
-      <Text className="mt-4 text-2xl font-bold text-black">Player Setup</Text>
-      <Text className="mt-0.5 text-sm font-medium text-gray-600">
-        {awayTeam.name} vs {homeTeam.name} ({match.playersPerSide}v{match.playersPerSide})
-      </Text>
-
-      {/* Half Duration Pill / Editor */}
-      {isEditingDuration ? (
-        <View className="mt-3 flex-row flex-wrap">
-          {HALF_DURATION_PRESETS_MIN.map((minutes) => (
+      <ScrollView className="flex-1" contentContainerClassName="pb-16 pt-12">
+        <View className="w-full max-w-xl self-center px-5">
+          {/* Header */}
+          <View className="relative flex-row items-center justify-center py-2">
             <Pressable
-              key={minutes}
-              onPress={() => {
-                updateMatch.mutate(
-                  { halfDurationSec: minutes * 60 },
-                  {
-                    onSuccess: (updated) => {
-                      queryClient.setQueryData(matchKeys.detail(id ?? ''), updated);
-                      setIsEditingDuration(false);
-                    },
-                    onError: (updateError) => {
-                      console.error('PATCH /matches/:id failed:', updateError);
-                    },
-                  },
-                );
-              }}
-              disabled={updateMatch.isPending}
+              onPress={() => router.back()}
               accessibilityRole="button"
-              accessibilityLabel={`${String(minutes)} minute halves`}
-              accessibilityHint="Sets the half duration for this match"
-              className={`mb-2 mr-2 rounded-full border px-3 py-1.5 ${
-                match.halfDurationSec === minutes * 60
-                  ? 'border-gray-300 bg-black'
-                  : 'border-gray-300 bg-white'
+              accessibilityLabel="Back to Match Setup"
+              accessibilityHint="Returns to team and format selection"
+              className="absolute left-0 h-10 w-10 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+            >
+              <ArrowLeft color="#ffffff" size={20} />
+            </Pressable>
+            <Text className="text-2xl font-bold text-white">Player Setup</Text>
+          </View>
+          <Text className="mt-1 text-center text-xs font-medium text-emerald-100/90">
+            {awayTeam.name} vs {homeTeam.name} ({match.playersPerSide}v{match.playersPerSide})
+          </Text>
+
+          {/* Segmented Top Tab Bar: Pitch View and List View (no emojis) */}
+          <View className="mt-5 flex-row rounded-2xl bg-black/35 p-1 border border-white/15">
+            <Pressable
+              onPress={() => setActiveTab('pitch')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'pitch' }}
+              accessibilityLabel="Pitch View tab"
+              accessibilityHint="Switches to tactical pitch view"
+              className={`flex-1 items-center justify-center rounded-xl py-2.5 ${
+                activeTab === 'pitch' ? 'bg-white shadow-sm' : ''
               }`}
             >
               <Text
-                className={`text-xs font-bold ${
-                  match.halfDurationSec === minutes * 60 ? 'text-white' : 'text-black'
+                className={`text-xs ${
+                  activeTab === 'pitch'
+                    ? 'font-bold text-slate-900'
+                    : 'font-semibold text-emerald-100/75'
                 }`}
               >
-                {minutes} min
+                Pitch View
               </Text>
             </Pressable>
-          ))}
+
+            <Pressable
+              onPress={() => setActiveTab('list')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'list' }}
+              accessibilityLabel="List View tab"
+              accessibilityHint="Switches to squad list view"
+              className={`flex-1 items-center justify-center rounded-xl py-2.5 ${
+                activeTab === 'list' ? 'bg-white shadow-sm' : ''
+              }`}
+            >
+              <Text
+                className={`text-xs ${
+                  activeTab === 'list'
+                    ? 'font-bold text-slate-900'
+                    : 'font-semibold text-emerald-100/75'
+                }`}
+              >
+                List View
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Active Tab View */}
+          {activeTab === 'pitch' ? (
+            <LineupPitchView
+              homeTeamName={homeTeam.name}
+              awayTeamName={awayTeam.name}
+              homeFormation={effectiveHomeFormation}
+              awayFormation={effectiveAwayFormation}
+              onOpenFormationPicker={(side) => setFormationModalSide(side)}
+              homePitchSlots={homePitchSlots}
+              awayPitchSlots={awayPitchSlots}
+              homeBench={homeBench}
+              awayBench={awayBench}
+              selectedPlayer={selectedPlayer}
+              onPlayerTap={handlePlayerTap}
+              onSlotTap={handleSlotTap}
+              onSwapSlots={handleSwapSlots}
+              onAssignNext={handleAssignNext}
+              onAddGuest={handleAddGuest}
+            />
+          ) : (
+            <LineupListView
+              homeTeamName={homeTeam.name}
+              awayTeamName={awayTeam.name}
+              playersPerSide={match.playersPerSide}
+              homeSlots={homeSlots}
+              awaySlots={awaySlots}
+              homeAssignments={homeAssignments}
+              awayAssignments={awayAssignments}
+              homeAvailable={homeAvailable}
+              awayAvailable={awayAvailable}
+              homeBench={homeBench}
+              awayBench={awayBench}
+              selectedPlayer={selectedPlayer}
+              onPlayerTap={handlePlayerTap}
+              onAssignNext={handleAssignNext}
+              onAddGuest={handleAddGuest}
+            />
+          )}
+
+          {/* End-of-page CTA: Continue to Match */}
+          <View className="mt-6">
+            {!isValid ? (
+              <Text className="mb-2 text-center text-xs font-semibold text-emerald-200">
+                Assign exactly {match.playersPerSide} starters for each team to continue
+              </Text>
+            ) : null}
+
+            {setLineups.isError ? (
+              <View className="mb-3 rounded-xl border border-red-300/40 bg-red-950/80 p-3">
+                <Text className="text-center text-xs font-medium text-red-200">
+                  Could not save the lineup — please try again
+                  {__DEV__ && setLineups.error instanceof Error
+                    ? ` (${setLineups.error.message})`
+                    : ''}
+                </Text>
+              </View>
+            ) : null}
+
+            <Pressable
+              onPress={handleStart}
+              disabled={!isValid || setLineups.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Continue to Match"
+              accessibilityHint="Saves the lineup and proceeds to the match"
+              style={{
+                shadowColor: isValid ? '#059669' : 'transparent',
+                shadowOpacity: isValid ? 0.35 : 0,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: isValid ? 4 : 0,
+              }}
+              className={`items-center justify-center rounded-2xl py-4 ${
+                isValid && !setLineups.isPending
+                  ? 'bg-emerald-500 active:bg-emerald-600'
+                  : 'bg-white/20'
+              }`}
+            >
+              {setLineups.isPending ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className={`text-base font-bold ${isValid ? 'text-white' : 'text-white/40'}`}>
+                  Continue to Match →
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </View>
-      ) : (
-        <Pressable
-          onPress={() => setIsEditingDuration(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Half duration: ${String(match.halfDurationSec / 60)} minutes`}
-          accessibilityHint="Opens options to change the half duration"
-          className="mt-2 flex-row items-center self-start rounded-full border border-gray-300 px-3 py-1.5 active:bg-gray-50"
-        >
-          <Clock color="#000000" size={13} />
-          <Text className="ml-1.5 text-xs font-bold text-black">
-            {match.halfDurationSec / 60} min halves
-          </Text>
-          <Pencil color="#6b7280" size={11} style={{ marginLeft: 6 }} />
-        </Pressable>
-      )}
-
-      {setLineups.isError ? (
-        <Text className="mt-2 text-sm text-red-700">
-          Could not save the lineup — try again
-          {__DEV__ && setLineups.error instanceof Error ? ` (${setLineups.error.message})` : ''}
-        </Text>
-      ) : null}
-
-      {/* Main CTA */}
-      <Pressable
-        onPress={handleStart}
-        disabled={!isValid || setLineups.isPending}
-        accessibilityRole="button"
-        accessibilityLabel="Continue to Match"
-        accessibilityHint="Saves the lineup and proceeds to the match"
-        className={`mt-4 items-center rounded-xl py-3.5 ${
-          isValid && !setLineups.isPending ? 'bg-black active:bg-gray-800' : 'bg-gray-300'
-        }`}
-      >
-        {setLineups.isPending ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text className="text-base font-bold text-white">Continue to Match</Text>
-        )}
-      </Pressable>
-
-      {!isValid ? (
-        <Text className="mt-1 text-center text-xs text-gray-500">
-          Assign exactly {match.playersPerSide} starters for each team to continue
-        </Text>
-      ) : null}
-
-      {/* Segmented Top Tab Bar: [ ⚽ Pitch View ] and [ 📋 List View ] */}
-      <View className="mt-5 flex-row rounded-xl bg-gray-100 p-1 border border-gray-200">
-        <Pressable
-          onPress={() => setActiveTab('pitch')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'pitch' }}
-          accessibilityLabel="Pitch View tab"
-          accessibilityHint="Switches to tactical pitch view"
-          className={`flex-1 items-center justify-center rounded-lg py-2 ${
-            activeTab === 'pitch' ? 'bg-white shadow-sm border border-gray-200/60' : ''
-          }`}
-        >
-          <Text
-            className={`text-xs ${
-              activeTab === 'pitch' ? 'font-bold text-black' : 'font-medium text-gray-500'
-            }`}
-          >
-            ⚽ Pitch View
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => setActiveTab('list')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'list' }}
-          accessibilityLabel="List View tab"
-          accessibilityHint="Switches to squad list view"
-          className={`flex-1 items-center justify-center rounded-lg py-2 ${
-            activeTab === 'list' ? 'bg-white shadow-sm border border-gray-200/60' : ''
-          }`}
-        >
-          <Text
-            className={`text-xs ${
-              activeTab === 'list' ? 'font-bold text-black' : 'font-medium text-gray-500'
-            }`}
-          >
-            📋 List View
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Active Tab View */}
-      {activeTab === 'pitch' ? (
-        <LineupPitchView
-          homeTeamName={homeTeam.name}
-          awayTeamName={awayTeam.name}
-          homeFormation={effectiveHomeFormation}
-          awayFormation={effectiveAwayFormation}
-          onOpenFormationPicker={(side) => setFormationModalSide(side)}
-          homePitchSlots={homePitchSlots}
-          awayPitchSlots={awayPitchSlots}
-          homeBench={homeBench}
-          awayBench={awayBench}
-          swapSelection={swapSelection}
-          onSelectForSwap={handleSelectForSwap}
-          onCancelSwap={() => setSwapSelection(null)}
-          onSlotTap={handleSlotTap}
-          onSwapSlots={handleSwapSlots}
-          onAssignNext={handleAssignNext}
-          onResetPositions={resetPositions}
-          onToggleLandscape={() => void toggleLandscape()}
-          isLandscape={false}
-          onAddGuest={handleAddGuest}
-        />
-      ) : (
-        <LineupListView
-          homeTeamName={homeTeam.name}
-          awayTeamName={awayTeam.name}
-          playersPerSide={match.playersPerSide}
-          homeSlots={homeSlots}
-          awaySlots={awaySlots}
-          homeAssignments={homeAssignments}
-          awayAssignments={awayAssignments}
-          homeAvailable={homeAvailable}
-          awayAvailable={awayAvailable}
-          homeBench={homeBench}
-          awayBench={awayBench}
-          swapSelection={swapSelection}
-          onSelectForSwap={handleSelectForSwap}
-          onMakeGoalkeeper={makeGoalkeeper}
-          onAssignNext={handleAssignNext}
-          onAddGuest={handleAddGuest}
-        />
-      )}
+      </ScrollView>
 
       {/* Formation Picker Modal */}
       <FormationPickerModal
@@ -751,6 +706,6 @@ export default function MatchLineup() {
         }}
         onClose={() => setFormationModalSide(null)}
       />
-    </ScrollView>
+    </View>
   );
 }

@@ -32,6 +32,7 @@ export interface PlayerTokenProps {
   // all in that case, not just a handler that happens to no-op, so a read-only pitch can't
   // accidentally reposition a live match's lineup.
   interactive?: boolean;
+  isSelected?: boolean;
   onDragEnd: (deltaLeftPercent: number, deltaTopPercent: number) => void;
   onTap: () => void;
 }
@@ -46,6 +47,7 @@ export function PlayerToken({
   containerWidth,
   containerHeight,
   interactive = true,
+  isSelected = false,
   onDragEnd,
   onTap,
 }: PlayerTokenProps) {
@@ -103,10 +105,12 @@ export function PlayerToken({
     <Animated.View
       accessible
       accessibilityRole={interactive ? 'button' : undefined}
-      accessibilityLabel={`${displayName}${isGoalkeeper ? ', goalkeeper' : ''}`}
+      accessibilityLabel={`${displayName}${isGoalkeeper ? ', goalkeeper' : ''}${isSelected ? ', selected' : ''}`}
       accessibilityHint={
         interactive
-          ? 'Tap to make this player the goalkeeper. Drag to swap positions with another player.'
+          ? isSelected
+            ? 'Tap to deselect'
+            : 'Tap to select for swap. Drag to swap positions with another player.'
           : undefined
       }
       style={[
@@ -116,7 +120,7 @@ export function PlayerToken({
           height: TOKEN_SIZE,
           marginLeft: -TOKEN_SIZE / 2,
           marginTop: -TOKEN_SIZE / 2,
-          zIndex: isGoalkeeper ? 2 : 1,
+          zIndex: isSelected ? 10 : isGoalkeeper ? 2 : 1,
           alignItems: 'center',
         },
         animatedStyle,
@@ -128,9 +132,16 @@ export function PlayerToken({
           width: TOKEN_SIZE,
           height: TOKEN_SIZE,
           backgroundColor: isGoalkeeper ? goalkeeper.fill : fill,
-          borderColor: isGoalkeeper ? goalkeeper.border : borderColor,
+          borderColor: isSelected ? '#10b981' : isGoalkeeper ? goalkeeper.border : borderColor,
+          borderWidth: isSelected ? 3 : 2,
         }}
       >
+        {isSelected ? (
+          <View
+            className="absolute -inset-1.5 rounded-full border-2 border-emerald-400/80 bg-emerald-400/20"
+            pointerEvents="none"
+          />
+        ) : null}
         {isGoalkeeper ? (
           <Target color="#ffffff" size={18} />
         ) : (
