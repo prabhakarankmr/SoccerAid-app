@@ -1,5 +1,12 @@
 import Clock from 'lucide-react-native/icons/clock';
+import { useEffect, useRef } from 'react';
 import { Image, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { MatchPeriod } from '../../hooks/useMatches';
 import { formatClock } from '../../utils/format';
@@ -17,6 +24,31 @@ export interface ScoreboardProps {
   addedTimeSec?: number;
   timeUp?: boolean;
   showClockHud?: boolean;
+}
+
+function AnimatedScoreDigit({ score }: { score: number }) {
+  const scale = useSharedValue(1);
+  const prevScore = useRef(score);
+
+  useEffect(() => {
+    if (score !== prevScore.current) {
+      prevScore.current = score;
+      scale.value = withSequence(
+        withSpring(1.3, { duration: 250, dampingRatio: 0.6 }),
+        withSpring(1, { duration: 300, dampingRatio: 0.8 }),
+      );
+    }
+  }, [score, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Text className="font-mono text-3xl font-black text-white">{score}</Text>
+    </Animated.View>
+  );
 }
 
 function periodBadgeText(period: MatchPeriod | null | undefined): string {
@@ -92,9 +124,9 @@ export function Scoreboard({
         {/* Digital Scoreboard Box */}
         <View className="mx-2 items-center justify-center">
           <View className="flex-row items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 shadow-sm">
-            <Text className="font-mono text-3xl font-black text-white">{homeScore}</Text>
+            <AnimatedScoreDigit score={homeScore} />
             <Text className="mx-2.5 text-xl font-bold text-slate-400">-</Text>
-            <Text className="font-mono text-3xl font-black text-white">{awayScore}</Text>
+            <AnimatedScoreDigit score={awayScore} />
           </View>
         </View>
 

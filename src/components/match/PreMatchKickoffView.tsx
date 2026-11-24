@@ -1,16 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import Play from 'lucide-react-native/icons/play';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,8 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { MatchTeamRef, Side } from '../../hooks/useMatches';
-
-const pitchBg = require('../../../assets/pitch-bg.jpg');
+import { StadiumBackdrop } from '../ui/StadiumBackdrop';
 
 interface PreMatchKickoffViewProps {
   homeTeam: MatchTeamRef;
@@ -97,34 +87,7 @@ export function PreMatchKickoffView({
 
   return (
     <View className="flex-1 bg-[#0b140e]">
-      {/* Stadium Pitch Backdrop */}
-      <Image
-        source={pitchBg}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-      />
-      {/* Dark Contrast Scrim & Floodlight Gradients */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11, 20, 14, 0.85)' }]} />
-      <LinearGradient
-        colors={[
-          'rgba(52, 211, 153, 0.28)',
-          'rgba(16, 185, 129, 0.12)',
-          'rgba(6, 25, 16, 0.65)',
-          'rgba(11, 20, 14, 0.96)',
-        ]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={['rgba(255, 255, 255, 0.16)', 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.35 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+      <StadiumBackdrop />
 
       <ScrollView
         className="flex-1"

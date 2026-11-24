@@ -1,18 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { ApiError } from '../../../src/api/client';
 import { matchKeys } from '../../../src/api/queryKeys';
@@ -26,6 +17,7 @@ import { MatchControls } from '../../../src/components/match/MatchControls';
 import { PlayerEventSheet } from '../../../src/components/match/PlayerEventSheet';
 import { PreMatchKickoffView } from '../../../src/components/match/PreMatchKickoffView';
 import { Scoreboard } from '../../../src/components/match/Scoreboard';
+import { StadiumBackdrop } from '../../../src/components/ui/StadiumBackdrop';
 import { FootballPitch, PitchSlot } from '../../../src/components/pitch/FootballPitch';
 import { slotsFor, useFormations } from '../../../src/hooks/useMeta';
 import {
@@ -44,8 +36,6 @@ import {
 } from '../../../src/hooks/useMatches';
 import { useMe } from '../../../src/hooks/useMe';
 import { TeamDetail, useTeam } from '../../../src/hooks/useTeams';
-
-const pitchBg = require('../../../assets/pitch-bg.jpg');
 
 type ActiveModal =
   { kind: 'goal' } | { kind: 'save' } | { kind: 'foul' } | { kind: 'end-match' } | null;
@@ -129,36 +119,16 @@ export default function MatchLive() {
     queryClient.setQueryData(matchKeys.detail(id ?? ''), updated);
   }
 
-  const stadiumBackdrop = (
-    <>
-      <Image
-        source={pitchBg}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11, 20, 14, 0.85)' }]} />
-      <LinearGradient
-        colors={[
-          'rgba(52, 211, 153, 0.28)',
-          'rgba(16, 185, 129, 0.12)',
-          'rgba(6, 25, 16, 0.65)',
-          'rgba(11, 20, 14, 0.96)',
-        ]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={['rgba(255, 255, 255, 0.16)', 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.35 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-    </>
-  );
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  const totalGoals = (match?.state?.homeScore ?? 0) + (match?.state?.awayScore ?? 0);
+
+  const stadiumBackdrop = <StadiumBackdrop scrollY={scrollY} celebrateTrigger={totalGoals} />;
 
   if (isMatchLoading) {
     return (
@@ -573,27 +543,31 @@ export default function MatchLive() {
       {isLandscape ? (
         <View className="flex-1 flex-row gap-4 px-4 pb-4 pt-2">
           {/* Left Column (Landscape): HUD, Pitch & Controls */}
-          <ScrollView
+          <Animated.ScrollView
             className="flex-1"
             showsVerticalScrollIndicator={false}
             contentContainerClassName="pb-10"
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
           >
             {matchHUDAndPitch}
-          </ScrollView>
+          </Animated.ScrollView>
 
           {/* Right Column (Landscape): Full-height Vertical Sports Timeline & Chat */}
           <View className="h-full w-[38%] max-w-md">{renderTimeline(true)}</View>
         </View>
       ) : (
         /* Portrait Column: Vertical flow with fixed-height commentary at bottom */
-        <ScrollView
+        <Animated.ScrollView
           className="flex-1"
           contentContainerClassName="px-4 pb-16 pt-2"
           showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
         >
           {matchHUDAndPitch}
           <View className="mt-4">{renderTimeline(false)}</View>
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       <GoalFlowSheet

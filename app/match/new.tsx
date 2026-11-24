@@ -1,24 +1,17 @@
 import { router } from 'expo-router';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { DualWheelPicker } from '../../src/components/match/DualWheelPicker';
 import { MatchupCard } from '../../src/components/match/MatchupCard';
 import { TeamPicker } from '../../src/components/match/TeamPicker';
+import { ScalePressable } from '../../src/components/ui/ScalePressable';
+import { StadiumBackdrop } from '../../src/components/ui/StadiumBackdrop';
 import { useCreateMatch } from '../../src/hooks/useMatches';
 import { useFormations } from '../../src/hooks/useMeta';
 import { TeamSummary } from '../../src/hooks/useTeams';
-
-const pitchBg = require('../../assets/pitch-bg.jpg');
 
 interface OpposingTeamContext {
   disabledPlayerIds: string[];
@@ -139,6 +132,13 @@ export default function MatchSetup() {
     );
   }
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   return (
     <View
       style={{
@@ -146,18 +146,17 @@ export default function MatchSetup() {
         width: '100%',
         height: '100%',
         position: 'relative',
-        backgroundColor: '#0d2015',
+        backgroundColor: '#0b140e',
       }}
     >
-      <Image
-        source={pitchBg}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]} />
+      <StadiumBackdrop scrollY={scrollY} />
 
-      <ScrollView className="flex-1" contentContainerClassName="pb-16 pt-12">
+      <Animated.ScrollView
+        className="flex-1"
+        contentContainerClassName="pb-16 pt-12"
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
         <View className="w-full max-w-xl self-center px-5">
           {/* Header */}
           <View className="relative flex-row items-center justify-center py-2">
@@ -214,9 +213,11 @@ export default function MatchSetup() {
               </Text>
             ) : null}
 
-            <Pressable
+            <ScalePressable
               onPress={handleSubmit}
               disabled={!canSubmit}
+              activeScale={0.97}
+              hapticFeedback="medium"
               accessibilityRole="button"
               accessibilityLabel="Set Up Lineups and Pitch"
               accessibilityHint="Creates the match and opens lineup selection"
@@ -240,10 +241,10 @@ export default function MatchSetup() {
                   Set Up Lineups & Pitch →
                 </Text>
               )}
-            </Pressable>
+            </ScalePressable>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <TeamPicker
         visible={pickerSlot !== null}

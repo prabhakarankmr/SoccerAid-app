@@ -7,8 +7,15 @@ import X from 'lucide-react-native/icons/x';
 import Zap from 'lucide-react-native/icons/zap';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, {
+  FadeInLeft,
+  FadeInRight,
+  FadeOutLeft,
+  FadeOutRight,
+} from 'react-native-reanimated';
 
 import { Side } from '../../hooks/useMatches';
+import { ScalePressable } from '../ui/ScalePressable';
 
 export interface StarterOption {
   side: Side;
@@ -98,77 +105,99 @@ export function GoalFlowSheet({
           <View className="flex-row items-center justify-between pb-2">
             <View className="flex-row items-center gap-2">
               {step === 'assist' ? (
-                <Pressable
+                <ScalePressable
                   onPress={() => setStep('scorer')}
+                  activeScale={0.92}
+                  hapticFeedback="light"
                   accessibilityLabel="Back to scorer selection"
                   accessibilityHint="Returns to who scored"
-                  className="h-8 w-8 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
                 >
-                  <ArrowLeft color="#0f172a" size={18} />
-                </Pressable>
+                  <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200">
+                    <ArrowLeft color="#0f172a" size={18} />
+                  </View>
+                </ScalePressable>
               ) : null}
               <Text className="text-xl font-bold text-slate-900">
                 {step === 'scorer' ? 'Who Scored?' : 'Who Assisted?'}
               </Text>
             </View>
-            <Pressable
+            <ScalePressable
               onPress={handleClose}
+              activeScale={0.92}
+              hapticFeedback="light"
               accessibilityLabel="Close"
               accessibilityHint="Closes without recording a goal"
-              className="h-8 w-8 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
             >
-              <X color="#64748b" size={18} />
-            </Pressable>
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200">
+                <X color="#64748b" size={18} />
+              </View>
+            </ScalePressable>
           </View>
 
-          {/* Step 1: Scorer Selection */}
+          {/* Step 1: Scorer Selection (Crossfade Slide In) */}
           {step === 'scorer' ? (
-            <>
+            <Animated.View
+              key="scorer-step"
+              entering={FadeInLeft.duration(180)}
+              exiting={FadeOutLeft.duration(140)}
+            >
               {/* Team Pill Selector Tabs */}
               <View className="my-2.5 flex-row gap-2">
-                <Pressable
+                <ScalePressable
                   onPress={() => setActiveSide('HOME')}
+                  activeScale={0.97}
+                  hapticFeedback="selection"
                   accessibilityRole="button"
                   accessibilityLabel={`Filter by ${homeTeamName}`}
                   accessibilityHint="Shows starting players for home team"
-                  className={`flex-1 flex-row items-center justify-center gap-2 rounded-xl border-2 py-2.5 ${
-                    activeSide === 'HOME'
-                      ? 'border-orange-500 bg-orange-50 shadow-sm'
-                      : 'border-gray-200 bg-white'
-                  }`}
+                  className="flex-1"
                 >
-                  <View className="h-3 w-3 rounded-full bg-orange-500" />
-                  <Text
-                    numberOfLines={1}
-                    className={`text-sm font-bold ${
-                      activeSide === 'HOME' ? 'text-orange-900' : 'text-gray-600'
+                  <View
+                    className={`flex-row items-center justify-center gap-2 rounded-xl border-2 py-2.5 ${
+                      activeSide === 'HOME'
+                        ? 'border-orange-500 bg-orange-50 shadow-sm'
+                        : 'border-gray-200 bg-white'
                     }`}
                   >
-                    {homeTeamName}
-                  </Text>
-                </Pressable>
+                    <View className="h-3 w-3 rounded-full bg-orange-500" />
+                    <Text
+                      numberOfLines={1}
+                      className={`text-sm font-bold ${
+                        activeSide === 'HOME' ? 'text-orange-900' : 'text-gray-600'
+                      }`}
+                    >
+                      {homeTeamName}
+                    </Text>
+                  </View>
+                </ScalePressable>
 
-                <Pressable
+                <ScalePressable
                   onPress={() => setActiveSide('AWAY')}
+                  activeScale={0.97}
+                  hapticFeedback="selection"
                   accessibilityRole="button"
                   accessibilityLabel={`Filter by ${awayTeamName}`}
                   accessibilityHint="Shows starting players for away team"
-                  className={`flex-1 flex-row items-center justify-center gap-2 rounded-xl border-2 py-2.5 ${
-                    activeSide === 'AWAY'
-                      ? 'border-blue-600 bg-blue-50 shadow-sm'
-                      : 'border-gray-200 bg-white'
-                  }`}
+                  className="flex-1"
                 >
-                  <View className="h-3 w-3 rounded-full bg-blue-600" />
-                  <Text
-                    numberOfLines={1}
-                    className={`text-sm font-bold ${
-                      activeSide === 'AWAY' ? 'text-blue-900' : 'text-gray-600'
+                  <View
+                    className={`flex-row items-center justify-center gap-2 rounded-xl border-2 py-2.5 ${
+                      activeSide === 'AWAY'
+                        ? 'border-blue-600 bg-blue-50 shadow-sm'
+                        : 'border-gray-200 bg-white'
                     }`}
                   >
-                    {awayTeamName}
-                  </Text>
-                </Pressable>
+                    <View className="h-3 w-3 rounded-full bg-blue-600" />
+                    <Text
+                      numberOfLines={1}
+                      className={`text-sm font-bold ${
+                        activeSide === 'AWAY' ? 'text-blue-900' : 'text-gray-600'
+                      }`}
+                    >
+                      {awayTeamName}
+                    </Text>
+                  </View>
+                </ScalePressable>
               </View>
 
               <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -178,48 +207,56 @@ export function GoalFlowSheet({
               {/* Player Tap Cards List */}
               <ScrollView className="max-h-80" showsVerticalScrollIndicator={false}>
                 {teamStarters.map((player) => (
-                  <Pressable
+                  <ScalePressable
                     key={player.playerId}
                     onPress={() => handleSelectScorer(player)}
                     disabled={disabled}
+                    activeScale={0.98}
+                    hapticFeedback="light"
                     accessibilityRole="button"
                     accessibilityLabel={`Scorer: ${player.displayName}`}
                     accessibilityHint="Selects this player and proceeds to assist selection"
-                    className="mb-2.5 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm active:bg-gray-50"
+                    className="mb-2.5"
                   >
-                    <View className="flex-row items-center gap-3">
-                      <View
-                        className={`h-10 w-10 items-center justify-center rounded-full border ${
-                          isHome
-                            ? 'border-orange-400 bg-orange-50 text-orange-700'
-                            : 'border-blue-400 bg-blue-50 text-blue-700'
-                        }`}
-                      >
-                        {player.isGoalkeeper ? (
-                          <Shield color={isHome ? '#ea580c' : '#2563eb'} size={18} />
-                        ) : (
-                          <User color={isHome ? '#ea580c' : '#2563eb'} size={18} />
-                        )}
+                    <View className="flex-row items-center justify-between rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm active:bg-gray-50">
+                      <View className="flex-row items-center gap-3">
+                        <View
+                          className={`h-10 w-10 items-center justify-center rounded-full border ${
+                            isHome
+                              ? 'border-orange-400 bg-orange-50 text-orange-700'
+                              : 'border-blue-400 bg-blue-50 text-blue-700'
+                          }`}
+                        >
+                          {player.isGoalkeeper ? (
+                            <Shield color={isHome ? '#ea580c' : '#2563eb'} size={18} />
+                          ) : (
+                            <User color={isHome ? '#ea580c' : '#2563eb'} size={18} />
+                          )}
+                        </View>
+                        <View>
+                          <Text className="text-base font-bold text-slate-900">
+                            {player.displayName}
+                          </Text>
+                          <Text className="text-xs text-gray-500">
+                            {player.isGoalkeeper ? 'Goalkeeper (GK)' : 'Outfield Player'}
+                          </Text>
+                        </View>
                       </View>
-                      <View>
-                        <Text className="text-base font-bold text-slate-900">
-                          {player.displayName}
-                        </Text>
-                        <Text className="text-xs text-gray-500">
-                          {player.isGoalkeeper ? 'Goalkeeper (GK)' : 'Outfield Player'}
-                        </Text>
+                      <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-100">
+                        <Check color="#94a3b8" size={14} />
                       </View>
                     </View>
-                    <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-100">
-                      <Check color="#94a3b8" size={14} />
-                    </View>
-                  </Pressable>
+                  </ScalePressable>
                 ))}
               </ScrollView>
-            </>
+            </Animated.View>
           ) : (
-            /* Step 2: Assist Selection */
-            <>
+            /* Step 2: Assist Selection (Crossfade Slide In) */
+            <Animated.View
+              key="assist-step"
+              entering={FadeInRight.duration(180)}
+              exiting={FadeOutRight.duration(140)}
+            >
               {/* Scorer Summary Card */}
               <View className="my-2.5 flex-row items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/80 p-3">
                 <View className="flex-row items-center gap-2.5">
@@ -233,15 +270,18 @@ export function GoalFlowSheet({
                     </Text>
                   </View>
                 </View>
-                <Pressable
+                <ScalePressable
                   onPress={() => setStep('scorer')}
+                  activeScale={0.94}
+                  hapticFeedback="light"
                   accessibilityRole="button"
                   accessibilityLabel="Change goal scorer"
                   accessibilityHint="Returns to scorer selection"
-                  className="rounded-lg bg-emerald-100 px-2.5 py-1 active:bg-emerald-200"
                 >
-                  <Text className="text-xs font-bold text-emerald-800">Change</Text>
-                </Pressable>
+                  <View className="rounded-lg bg-emerald-100 px-2.5 py-1 active:bg-emerald-200">
+                    <Text className="text-xs font-bold text-emerald-800">Change</Text>
+                  </View>
+                </ScalePressable>
               </View>
 
               <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -250,61 +290,70 @@ export function GoalFlowSheet({
 
               <ScrollView className="max-h-80" showsVerticalScrollIndicator={false}>
                 {/* Solo Goal Option */}
-                <Pressable
+                <ScalePressable
                   onPress={handleSoloGoal}
                   disabled={disabled}
+                  activeScale={0.98}
+                  hapticFeedback="medium"
                   accessibilityRole="button"
                   accessibilityLabel="Solo Goal, unassisted effort"
                   accessibilityHint="Records the goal as a solo goal without an assist"
-                  className="mb-3 flex-row items-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-3.5 active:bg-slate-100"
+                  className="mb-3"
                 >
-                  <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-slate-800">
-                    <Zap color="#ffffff" size={18} />
+                  <View className="flex-row items-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-3.5 active:bg-slate-100">
+                    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-slate-800">
+                      <Zap color="#ffffff" size={18} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-slate-900" numberOfLines={1}>
+                        Solo Goal{' '}
+                      </Text>
+                      <Text className="text-xs text-slate-500">Unassisted individual effort</Text>
+                    </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-slate-900" numberOfLines={1}>
-                      Solo Goal{' '}
-                    </Text>
-                  </View>
-                </Pressable>
+                </ScalePressable>
 
                 {/* Teammate Assisters */}
                 {eligibleAssisters.map((player) => (
-                  <Pressable
+                  <ScalePressable
                     key={player.playerId}
                     onPress={() => handleSelectAssist(player)}
                     disabled={disabled}
+                    activeScale={0.98}
+                    hapticFeedback="medium"
                     accessibilityRole="button"
                     accessibilityLabel={`Assisted by ${player.displayName}`}
                     accessibilityHint="Records goal with this assist"
-                    className="mb-2.5 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm active:bg-gray-50"
+                    className="mb-2.5"
                   >
-                    <View className="flex-row items-center gap-3">
-                      <View
-                        className={`h-10 w-10 items-center justify-center rounded-full border ${
-                          isHome
-                            ? 'border-orange-400 bg-orange-50 text-orange-700'
-                            : 'border-blue-400 bg-blue-50 text-blue-700'
-                        }`}
-                      >
-                        <User color={isHome ? '#ea580c' : '#2563eb'} size={18} />
+                    <View className="flex-row items-center justify-between rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm active:bg-gray-50">
+                      <View className="flex-row items-center gap-3">
+                        <View
+                          className={`h-10 w-10 items-center justify-center rounded-full border ${
+                            isHome
+                              ? 'border-orange-400 bg-orange-50 text-orange-700'
+                              : 'border-blue-400 bg-blue-50 text-blue-700'
+                          }`}
+                        >
+                          <User color={isHome ? '#ea580c' : '#2563eb'} size={18} />
+                        </View>
+                        <View>
+                          <Text className="text-base font-bold text-slate-900">
+                            {player.displayName}
+                          </Text>
+                          <Text className="text-xs text-gray-500">
+                            {player.isGoalkeeper ? 'Goalkeeper (GK)' : 'Outfield Teammate'}
+                          </Text>
+                        </View>
                       </View>
-                      <View>
-                        <Text className="text-base font-bold text-slate-900">
-                          {player.displayName}
-                        </Text>
-                        <Text className="text-xs text-gray-500">
-                          {player.isGoalkeeper ? 'Goalkeeper (GK)' : 'Outfield Teammate'}
-                        </Text>
+                      <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-100">
+                        <Check color="#94a3b8" size={14} />
                       </View>
                     </View>
-                    <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-100">
-                      <Check color="#94a3b8" size={14} />
-                    </View>
-                  </Pressable>
+                  </ScalePressable>
                 ))}
               </ScrollView>
-            </>
+            </Animated.View>
           )}
         </Pressable>
       </Pressable>

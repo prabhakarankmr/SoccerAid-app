@@ -10,9 +10,11 @@ import Send from 'lucide-react-native/icons/send';
 import Shield from 'lucide-react-native/icons/shield';
 import Trophy from 'lucide-react-native/icons/trophy';
 import { useMemo, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Keyboard, ScrollView, Text, TextInput, View } from 'react-native';
+import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 
 import { MatchEvent, Side } from '../../hooks/useMatches';
+import { ScalePressable } from '../ui/ScalePressable';
 
 export interface UserComment {
   id: string;
@@ -99,53 +101,71 @@ export function EventsTimeline({
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const minute = currentMinute ? `${currentMinute}'` : null;
-    const latestEvent = events.length > 0 ? events[events.length - 1] : null;
-    const afterEventId = latestEvent ? latestEvent.id : null;
 
-    setComments((prev) => [
-      ...prev,
-      {
-        id: `cmt-${Date.now()}-${prev.length}`,
-        author: currentUserName,
-        text,
-        time,
-        minute,
-        timestamp: Date.now(),
-        afterEventId,
-      },
-    ]);
+    // Anchor the comment to the currently latest event in chronological order
+    const latestEventId = events.length > 0 ? events[events.length - 1].id : null;
+
+    const newComment: UserComment = {
+      id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      author: currentUserName,
+      text,
+      time,
+      minute,
+      timestamp: Date.now(),
+      afterEventId: latestEventId,
+    };
+
+    setComments((prev) => [...prev, newComment]);
     setInputText('');
     Keyboard.dismiss();
   };
 
-  const feedItems = useMemo(() => {
-    const merged: FeedItem[] = [];
+  /**
+   * Causal event-linked chronological interleaving:
+   * Match events form the chronological backbone. Each comment is anchored to the event
+   * that was present when the comment was written (afterEventId).
+   */
+  const chronologicalFeed = useMemo(() => {
+    const items: FeedItem[] = [];
+
+    // Pre-match comments (before any events occurred)
     for (const c of comments) {
-      if (!c.afterEventId) merged.push({ kind: 'comment', data: c });
-    }
-    for (const e of events) {
-      merged.push({ kind: 'event', data: e });
-      for (const c of comments) {
-        if (c.afterEventId === e.id) merged.push({ kind: 'comment', data: c });
+      if (!c.afterEventId) {
+        items.push({ kind: 'comment', data: c });
       }
     }
-    const placedIds = new Set(merged.map((m) => m.data.id));
-    for (const c of comments) {
-      if (!placedIds.has(c.id)) merged.push({ kind: 'comment', data: c });
+
+    // Interleave events with their causal comments
+    for (const e of events) {
+      items.push({ kind: 'event', data: e });
+      const anchoredComments = comments.filter((c) => c.afterEventId === e.id);
+      for (const c of anchoredComments) {
+        items.push({ kind: 'comment', data: c });
+      }
     }
-    return isAscending ? merged : [...merged].reverse();
-  }, [events, comments, isAscending]);
+
+    return items;
+  }, [events, comments]);
+
+  const feedItems = useMemo(() => {
+    if (isAscending) {
+      return chronologicalFeed;
+    }
+    return [...chronologicalFeed].reverse();
+  }, [chronologicalFeed, isAscending]);
 
   return (
     <View
-      style={{ shadowColor: '#000000', shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 }}
-      className={`rounded-3xl border border-white/15 bg-slate-950/85 p-3.5 backdrop-blur-md ${isFullHeight ? 'flex-1' : 'h-72'}`}
+      className={`rounded-2xl border border-white/10 bg-slate-900/60 p-3.5 backdrop-blur-md shadow-lg ${
+        isFullHeight ? 'flex-1' : 'h-72'
+      }`}
     >
       {/* Header Bar */}
       <View className="flex-row items-center justify-between border-b border-white/10 pb-2.5">
         <View className="flex-row items-center gap-2">
-          <Text className="text-xs font-black uppercase tracking-wider text-white">
-            Match Commentary
+          <View className="h-2 w-2 rounded-full bg-emerald-400" />
+          <Text className="text-xs font-bold uppercase tracking-wider text-slate-200">
+            Timeline & Chat
           </Text>
           {feedItems.length > 0 ? (
             <View className="rounded-full bg-white/10 px-2 py-0.5">
@@ -157,18 +177,21 @@ export function EventsTimeline({
         </View>
 
         {feedItems.length > 1 ? (
-          <Pressable
+          <ScalePressable
             onPress={() => setIsAscending((p) => !p)}
+            activeScale={0.92}
+            hapticFeedback="selection"
             accessibilityRole="button"
             accessibilityLabel={`Sort feed: currently ${isAscending ? "1' to 90'" : 'Latest First'}`}
             accessibilityHint="Toggles feed sort order"
-            className="flex-row items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 active:bg-white/10"
           >
-            <ArrowDownUp color="#94a3b8" size={11} />
-            <Text className="text-[10px] font-bold text-slate-300">
-              {isAscending ? "1' → 90'" : 'Latest First'}
-            </Text>
-          </Pressable>
+            <View className="flex-row items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 active:bg-white/10">
+              <ArrowDownUp color="#94a3b8" size={11} />
+              <Text className="text-[10px] font-bold text-slate-300">
+                {isAscending ? "1' → 90'" : 'Latest First'}
+              </Text>
+            </View>
+          </ScalePressable>
         ) : null}
       </View>
 
@@ -200,8 +223,10 @@ export function EventsTimeline({
                 e.side === 'HOME' ? homeTeamName : e.side === 'AWAY' ? awayTeamName : null;
 
               return (
-                <View
+                <Animated.View
                   key={e.id}
+                  entering={FadeInUp.duration(220)}
+                  layout={LinearTransition.duration(200)}
                   className="flex-row items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2"
                 >
                   <View className="flex-1 flex-row items-center gap-2 pr-2">
@@ -227,25 +252,33 @@ export function EventsTimeline({
                   </View>
                   {team ? (
                     <View
-                      className={`rounded-full px-2 py-0.5 border ${e.side === 'HOME' ? 'border-orange-500/30 bg-orange-950/20' : 'border-blue-500/30 bg-blue-950/20'}`}
+                      className={`rounded-full px-2 py-0.5 border ${
+                        e.side === 'HOME'
+                          ? 'border-orange-500/30 bg-orange-950/20'
+                          : 'border-blue-500/30 bg-blue-950/20'
+                      }`}
                     >
                       <Text
-                        className={`text-[9px] font-bold uppercase ${e.side === 'HOME' ? 'text-orange-400' : 'text-blue-400'}`}
+                        className={`text-[9px] font-bold uppercase ${
+                          e.side === 'HOME' ? 'text-orange-400' : 'text-blue-400'
+                        }`}
                         numberOfLines={1}
                       >
                         {team}
                       </Text>
                     </View>
                   ) : null}
-                </View>
+                </Animated.View>
               );
             }
 
-            // User / Player Comment Row (Same harmonious card style, cleanly distinguishable by icon & content)
+            // User / Player Comment Row
             const c = item.data;
             return (
-              <View
+              <Animated.View
                 key={c.id}
+                entering={FadeInUp.duration(220)}
+                layout={LinearTransition.duration(200)}
                 className="flex-row items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2"
               >
                 <View className="flex-1 flex-row items-center gap-2 pr-2">
@@ -259,7 +292,7 @@ export function EventsTimeline({
                   </Text>
                 </View>
                 <Text className="font-mono text-[9px] text-slate-400">{c.time}</Text>
-              </View>
+              </Animated.View>
             );
           })}
         </ScrollView>
@@ -278,16 +311,23 @@ export function EventsTimeline({
           onSubmitEditing={handleSendComment}
           returnKeyType="send"
         />
-        <Pressable
+        <ScalePressable
           onPress={handleSendComment}
           disabled={!inputText.trim()}
+          activeScale={0.92}
+          hapticFeedback="light"
           accessibilityRole="button"
           accessibilityLabel="Send comment"
           accessibilityHint="Posts your comment to the match feed"
-          className={`h-7 w-7 items-center justify-center rounded-lg ${inputText.trim() ? 'bg-emerald-500 active:bg-emerald-600' : 'bg-slate-800'}`}
         >
-          <Send color={inputText.trim() ? '#ffffff' : '#64748b'} size={12} />
-        </Pressable>
+          <View
+            className={`h-8 w-8 items-center justify-center rounded-xl ${
+              inputText.trim() ? 'bg-emerald-500 active:bg-emerald-600' : 'bg-slate-800 opacity-50'
+            }`}
+          >
+            <Send color="#ffffff" size={14} />
+          </View>
+        </ScalePressable>
       </View>
     </View>
   );

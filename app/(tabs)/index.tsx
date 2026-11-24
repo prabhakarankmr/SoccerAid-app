@@ -1,10 +1,18 @@
 import { router } from 'expo-router';
 import ArrowRight from 'lucide-react-native/icons/arrow-right';
-import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { StadiumBackdrop } from '../../src/components/ui/StadiumBackdrop';
 import { useMe } from '../../src/hooks/useMe';
 
-const pitchBg = require('../../assets/pitch-bg.jpg');
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
 function formatToday(): string {
   return new Date().toLocaleDateString('en-IN', {
@@ -33,32 +41,41 @@ function ActionCard({
   ctaLabel: string;
   ctaColor: string;
 }) {
-  const scale = new Animated.Value(1);
+  const scale = useSharedValue(1);
 
-  const onPressIn = () =>
-    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 30 }).start();
-  const onPressOut = () =>
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+  const onPressIn = () => {
+    scale.value = withTiming(0.97, { duration: 120, easing: EASE_OUT });
+  };
+  const onPressOut = () => {
+    scale.value = withTiming(1, { duration: 180, easing: EASE_OUT });
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
     <Pressable
       onPress={onPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
+      pressRetentionOffset={{ top: 12, left: 12, bottom: 12, right: 12 }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
     >
       <Animated.View
-        style={{
-          transform: [{ scale }],
-          shadowColor: '#0f172a',
-          shadowOpacity: 0.1,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 5,
-          borderRadius: 20,
-          overflow: 'hidden',
-        }}
+        style={[
+          animatedStyle,
+          {
+            shadowColor: '#0f172a',
+            shadowOpacity: 0.1,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 5,
+            borderRadius: 20,
+            overflow: 'hidden',
+          },
+        ]}
       >
         <View className="bg-white px-5 py-5">
           <Text className="text-xl font-bold text-slate-900">{title}</Text>
@@ -84,6 +101,13 @@ export default function Home() {
   const { data: me } = useMe();
   const firstName = me?.name?.trim().split(' ')[0] ?? 'Player';
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   return (
     <View
       style={{
@@ -91,17 +115,16 @@ export default function Home() {
         width: '100%',
         height: '100%',
         position: 'relative',
-        backgroundColor: '#0d2015',
+        backgroundColor: '#0b140e',
       }}
     >
-      <Image
-        source={pitchBg}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]} />
-      <ScrollView className="flex-1" contentContainerClassName="pb-32">
+      <StadiumBackdrop scrollY={scrollY} />
+      <Animated.ScrollView
+        className="flex-1"
+        contentContainerClassName="pb-32"
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
         {/* ── Header ── */}
         <View className="w-full max-w-xl self-center px-6 pt-16 pb-8">
           <Text className="text-3xl font-bold text-white">Hey, {firstName}!</Text>
@@ -137,7 +160,7 @@ export default function Home() {
             ctaColor="#d97706"
           />
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

@@ -2,16 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { apiClient, ApiError } from '../../../src/api/client';
@@ -24,12 +16,12 @@ import {
 import { FormationPickerModal } from '../../../src/components/match/FormationPickerModal';
 import { LineupListView } from '../../../src/components/match/LineupListView';
 import { LineupPitchView, SelectedPlayer } from '../../../src/components/match/LineupPitchView';
+import { ScalePressable } from '../../../src/components/ui/ScalePressable';
+import { StadiumBackdrop } from '../../../src/components/ui/StadiumBackdrop';
 import { FormationSlot, slotsFor, useFormations } from '../../../src/hooks/useMeta';
 import { LineupPlayerInput, useMatch, useSetLineups } from '../../../src/hooks/useMatches';
 import { PlayerSummary } from '../../../src/hooks/usePlayers';
 import { TeamDetail, TeamRosterPlayer, useTeam } from '../../../src/hooks/useTeams';
-
-const pitchBg = require('../../../assets/pitch-bg.jpg');
 
 type SlotAssignments = Record<number, string | null>;
 
@@ -181,6 +173,13 @@ export default function MatchLineup() {
   const { data: homeTeam } = useTeam(match?.homeTeam.id);
   const { data: awayTeam } = useTeam(match?.awayTeam.id);
   const formationsQuery = useFormations(match?.playersPerSide);
+
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const [activeTab, setActiveTab] = useState<'pitch' | 'list'>('pitch');
   const [formationModalSide, setFormationModalSide] = useState<PitchSide | null>(null);
@@ -526,18 +525,17 @@ export default function MatchLineup() {
         width: '100%',
         height: '100%',
         position: 'relative',
-        backgroundColor: '#0d2015',
+        backgroundColor: '#0b140e',
       }}
     >
-      <Image
-        source={pitchBg}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]} />
+      <StadiumBackdrop scrollY={scrollY} />
 
-      <ScrollView className="flex-1" contentContainerClassName="pb-16 pt-12">
+      <Animated.ScrollView
+        className="flex-1"
+        contentContainerClassName="pb-16 pt-12"
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
         <View className="w-full max-w-xl self-center px-5">
           {/* Header */}
           <View className="relative flex-row items-center justify-center py-2">
@@ -659,9 +657,11 @@ export default function MatchLineup() {
               </View>
             ) : null}
 
-            <Pressable
+            <ScalePressable
               onPress={handleStart}
               disabled={!isValid || setLineups.isPending}
+              activeScale={0.97}
+              hapticFeedback="medium"
               accessibilityRole="button"
               accessibilityLabel="Continue to Match"
               accessibilityHint="Saves the lineup and proceeds to the match"
@@ -685,10 +685,10 @@ export default function MatchLineup() {
                   Continue to Match →
                 </Text>
               )}
-            </Pressable>
+            </ScalePressable>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Formation Picker Modal */}
       <FormationPickerModal

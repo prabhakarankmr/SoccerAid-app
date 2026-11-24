@@ -4,9 +4,10 @@ import Pause from 'lucide-react-native/icons/pause';
 import Play from 'lucide-react-native/icons/play';
 import Plus from 'lucide-react-native/icons/plus';
 import Square from 'lucide-react-native/icons/square';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { MatchPeriod } from '../../hooks/useMatches';
+import { ScalePressable } from '../ui/ScalePressable';
 
 export interface MatchControlsProps {
   period: MatchPeriod | null | undefined;
@@ -58,66 +59,78 @@ export function MatchControls({
       {/* Option 1 Side-by-Side Controls */}
       <View className="flex-row items-center gap-2">
         {/* Button 1: Pause / Resume (Subtle Gray) */}
-        <Pressable
+        <ScalePressable
           onPress={onTogglePause}
           disabled={isTogglePending}
+          activeScale={0.96}
+          hapticFeedback="light"
           accessibilityRole="button"
           accessibilityLabel={isPaused ? 'Resume match' : 'Pause match'}
           accessibilityHint={isPaused ? 'Resumes the match clock' : 'Pauses the match clock'}
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-gray-300 bg-gray-100/90 py-3 active:bg-gray-200"
+          className="flex-1"
         >
-          {isTogglePending ? (
-            <ActivityIndicator size="small" color="#000000" />
-          ) : isPaused ? (
-            <>
-              <Play color="#000000" size={16} />
-              <Text className="text-sm font-bold text-black">Resume</Text>
-            </>
-          ) : (
-            <>
-              <Pause color="#000000" size={16} />
-              <Text className="text-sm font-bold text-black">Pause</Text>
-            </>
-          )}
-        </Pressable>
+          <View className="flex-row items-center justify-center gap-2 rounded-xl border border-gray-300 bg-gray-100/90 py-3 active:bg-gray-200">
+            {isTogglePending ? (
+              <ActivityIndicator size="small" color="#000000" />
+            ) : isPaused ? (
+              <>
+                <Play color="#000000" size={16} />
+                <Text className="text-sm font-bold text-black">Resume</Text>
+              </>
+            ) : (
+              <>
+                <Pause color="#000000" size={16} />
+                <Text className="text-sm font-bold text-black">Pause</Text>
+              </>
+            )}
+          </View>
+        </ScalePressable>
 
         {/* Button 2: End 1st Half (Prominent) or End Match (Red Button in Main View) */}
         {isFirstHalf ? (
-          <Pressable
+          <ScalePressable
             onPress={onEndFirstHalf}
             disabled={isEndFirstHalfPending}
+            activeScale={0.96}
+            hapticFeedback="light"
             accessibilityRole="button"
             accessibilityLabel="End 1st Half"
             accessibilityHint="Ends the first half and transitions to half-time"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-black py-3 active:bg-slate-800"
+            className="flex-1"
           >
-            {isEndFirstHalfPending ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Text className="text-sm font-bold text-white">End 1st Half</Text>
-                <ChevronRight color="#ffffff" size={16} />
-              </>
-            )}
-          </Pressable>
+            <View className="flex-row items-center justify-center gap-2 rounded-xl bg-black py-3 active:bg-slate-800">
+              {isEndFirstHalfPending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Text className="text-sm font-bold text-white">End 1st Half</Text>
+                  <ChevronRight color="#ffffff" size={16} />
+                </>
+              )}
+            </View>
+          </ScalePressable>
         ) : (
-          <Pressable
+          <ScalePressable
             onPress={onEndMatch}
             disabled={isEndMatchPending}
+            activeScale={0.96}
+            hapticFeedback="medium"
             accessibilityRole="button"
             accessibilityLabel="End Match"
             accessibilityHint="Ends the match and finalizes score"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-red-600 py-3 active:bg-red-700"
+            className="flex-1"
           >
-            {isEndMatchPending ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Square color="#ffffff" size={14} fill="#ffffff" />
-                <Text className="text-sm font-bold text-white">End Match</Text>
-              </>
-            )}
-          </Pressable>
+            <View className="flex-row items-center justify-center gap-2 rounded-xl bg-red-600 py-3 active:bg-red-700">
+              {isEndMatchPending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Square color="#ffffff" size={14} fill="#ffffff" />
+                  <Text className="text-sm font-bold text-white">End Match</Text>
+                </>
+              )}
+            </View>
+          </ScalePressable>
         )}
       </View>
 
@@ -125,18 +138,21 @@ export function MatchControls({
       <View className="mt-2.5 flex-row items-center justify-center gap-2">
         <Text className="text-xs font-semibold text-gray-500">Add Time:</Text>
         {ADD_TIME_PRESETS_MIN.map((minutes) => (
-          <Pressable
+          <ScalePressable
             key={minutes}
             onPress={() => onAddTime(minutes * 60)}
             disabled={isAddTimePending}
+            activeScale={0.92}
+            hapticFeedback="selection"
             accessibilityRole="button"
             accessibilityLabel={`Add ${minutes} minute${minutes > 1 ? 's' : ''}`}
             accessibilityHint="Adds stoppage time to this half"
-            className="flex-row items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 active:bg-gray-100"
           >
-            <Plus color="#000000" size={12} />
-            <Text className="text-xs font-bold text-black">+{minutes} min</Text>
-          </Pressable>
+            <View className="flex-row items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 active:bg-gray-100">
+              <Plus color="#000000" size={12} />
+              <Text className="text-xs font-bold text-black">+{minutes} min</Text>
+            </View>
+          </ScalePressable>
         ))}
       </View>
     </View>

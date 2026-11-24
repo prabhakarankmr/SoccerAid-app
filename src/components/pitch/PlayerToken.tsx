@@ -1,20 +1,22 @@
+import * as Haptics from 'expo-haptics';
 import Target from 'lucide-react-native/icons/target';
 import UserIcon from 'lucide-react-native/icons/user';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { goalkeeper } from '../../theme/tokens';
 
 const TOKEN_SIZE = 40;
-// Below this many pixels of movement, a gesture is treated as a tap (assign goalkeeper) rather
-// than a drag (swap positions) — Gesture.Race lets both coexist on the same token.
+// Below this many pixels of movement, a gesture is treated as a tap (assign goalkeeper / select)
+// rather than a drag (swap positions) — Gesture.Race lets both coexist on the same token.
 const DRAG_THRESHOLD_PX = 8;
 
 export interface PlayerTokenProps {
@@ -51,19 +53,50 @@ export function PlayerToken({
   onDragEnd,
   onTap,
 }: PlayerTokenProps) {
+  const reducedMotion = useReducedMotion();
   const baseLeft = useSharedValue(left);
   const baseTop = useSharedValue(top);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const isDragging = useSharedValue(false);
+  const dragScale = useSharedValue(1);
 
-  // A swap (elsewhere on the pitch) changes this token's resting slot — animate to it rather
-  // than jumping, so the swap reads as a move, not a re-render.
+  // A swap elsewhere on the pitch moves this token to a new slot:
+  // spring to the new coordinates on the UI thread for physical glide rather than a jump.
   useEffect(() => {
-    baseLeft.value = withTiming(left, { duration: 220 });
-    baseTop.value = withTiming(top, { duration: 220 });
-  }, [left, top, baseLeft, baseTop]);
+    if (reducedMotion) {
+      baseLeft.value = left;
+      baseTop.value = top;
+    } else {
+      baseLeft.value = withSpring(left, { duration: 350, dampingRatio: 0.85 });
+      baseTop.value = withSpring(top, { duration: 350, dampingRatio: 0.85 });
+    }
+  }, [left, top, baseLeft, baseTop, reducedMotion]);
+
+  const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
+    try {
+      void Haptics.impactAsync(style);
+    } catch {
+      // Fallback on web or unsupported devices
+    }
+  };
+
+  const triggerSelectionHaptic = () => {
+    try {
+      void Haptics.selectionAsync();
+    } catch {
+      // Fallback on web or unsupported devices
+    }
+  };
 
   const pan = Gesture.Pan()
+    .onStart(() => {
+      isDragging.value = true;
+      if (!reducedMotion) {
+        dragScale.value = withSpring(1.18, { duration: 250, dampingRatio: 0.7 });
+      }
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Light);
+    })
     .onChange((event) => {
       translateX.value += event.changeX;
       translateY.value += event.changeY;
@@ -76,21 +109,33 @@ export function PlayerToken({
       if (movedEnough && containerWidth > 0 && containerHeight > 0) {
         const deltaLeftPercent = (translateX.value / containerWidth) * 100;
         const deltaTopPercent = (translateY.value / containerHeight) * 100;
-        runOnJS(onDragEnd)(deltaLeftPercent, deltaTopPercent);
+        scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
+        scheduleOnRN(onDragEnd, deltaLeftPercent, deltaTopPercent);
       }
 
-      translateX.value = withTiming(0, { duration: 200 });
-      translateY.value = withTiming(0, { duration: 200 });
+      // Preserve finger release momentum for natural spring settle
+      translateX.value = withSpring(0, {
+        duration: 400,
+        dampingRatio: 0.8,
+        velocity: event.velocityX,
+      });
+      translateY.value = withSpring(0, {
+        duration: 400,
+        dampingRatio: 0.8,
+        velocity: event.velocityY,
+      });
+    })
+    .onFinalize(() => {
+      isDragging.value = false;
+      dragScale.value = withSpring(1, { duration: 300, dampingRatio: 0.8 });
     });
 
-  // A plain RN Pressable nested inside this GestureDetector wouldn't reliably receive taps —
-  // the Pan gesture claims the touch first. Gesture.Tap, composed via Race, is RNGH's own
-  // answer: it fails to activate past `maxDistance`, letting Pan take over past that point,
-  // and wins outright for a true tap (same gesture system, properly negotiated).
+  // RNGH Tap primitive raced with Pan to cleanly separate taps from drags
   const tap = Gesture.Tap()
     .maxDistance(DRAG_THRESHOLD_PX)
     .onEnd(() => {
-      runOnJS(onTap)();
+      scheduleOnRN(triggerSelectionHaptic);
+      scheduleOnRN(onTap);
     });
 
   const gesture = Gesture.Race(tap, pan);
@@ -98,7 +143,17 @@ export function PlayerToken({
   const animatedStyle = useAnimatedStyle(() => ({
     left: `${baseLeft.value}%`,
     top: `${baseTop.value}%`,
-    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
+    zIndex: isDragging.value ? 99 : isSelected ? 10 : isGoalkeeper ? 2 : 1,
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: dragScale.value },
+    ],
+    shadowColor: '#000000',
+    shadowOpacity: isDragging.value ? 0.35 : 0.08,
+    shadowRadius: isDragging.value ? 12 : 4,
+    shadowOffset: { width: 0, height: isDragging.value ? 8 : 2 },
+    elevation: isDragging.value ? 12 : 2,
   }));
 
   const tokenBody = (
@@ -120,7 +175,6 @@ export function PlayerToken({
           height: TOKEN_SIZE,
           marginLeft: -TOKEN_SIZE / 2,
           marginTop: -TOKEN_SIZE / 2,
-          zIndex: isSelected ? 10 : isGoalkeeper ? 2 : 1,
           alignItems: 'center',
         },
         animatedStyle,
