@@ -1,14 +1,26 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
-import Play from 'lucide-react-native/icons/play';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { ApiError } from '../../../src/api/client';
 import { matchKeys } from '../../../src/api/queryKeys';
 import { EndMatchConfirmSheet } from '../../../src/components/match/EndMatchConfirmSheet';
+import { EventsTimeline } from '../../../src/components/match/EventsTimeline';
+import { FullTimeView } from '../../../src/components/match/FullTimeView';
 import { GoalFlowSheet, StarterOption } from '../../../src/components/match/GoalFlowSheet';
+import { HalfTimeView } from '../../../src/components/match/HalfTimeView';
 import { MatchActionBar } from '../../../src/components/match/MatchActionBar';
 import { MatchControls } from '../../../src/components/match/MatchControls';
 import { PlayerEventSheet } from '../../../src/components/match/PlayerEventSheet';
@@ -18,8 +30,6 @@ import { FootballPitch, PitchSlot } from '../../../src/components/pitch/Football
 import { slotsFor, useFormations } from '../../../src/hooks/useMeta';
 import {
   MatchDetail,
-  MatchEvent,
-  MatchPeriod,
   Side,
   makeClientEventId,
   useAddTime,
@@ -32,31 +42,13 @@ import {
   useStartMatch,
   useStartSecondHalf,
 } from '../../../src/hooks/useMatches';
+import { useMe } from '../../../src/hooks/useMe';
 import { TeamDetail, useTeam } from '../../../src/hooks/useTeams';
+
+const pitchBg = require('../../../assets/pitch-bg.jpg');
 
 type ActiveModal =
   { kind: 'goal' } | { kind: 'save' } | { kind: 'foul' } | { kind: 'end-match' } | null;
-
-function formatClock(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function periodLabel(period: MatchPeriod | null | undefined): string {
-  switch (period) {
-    case 'FIRST_HALF':
-      return '1st Half';
-    case 'HALF_TIME':
-      return 'Half Time';
-    case 'SECOND_HALF':
-      return '2nd Half';
-    case 'FULL_TIME':
-      return 'Full Time';
-    default:
-      return '';
-  }
-}
 
 // Mirrors matches.repository.ts's computeElapsedSec exactly — banked `elapsedSec` plus however
 // long the clock has been running since `clockStartedAt`, or just the banked value while
@@ -96,44 +88,15 @@ function buildStarters(
     }));
 }
 
-function describeEvent(
-  event: MatchEvent,
-  nameOf: (id: string | null) => string,
-  teamNameFor: (side: Side | null) => string,
-): string {
-  switch (event.type) {
-    case 'KICK_OFF':
-      return event.side ? `Kick-off! ${teamNameFor(event.side)} get us underway.` : 'Kick-off!';
-    case 'GOAL': {
-      const assist = event.assistPlayerId ? ` (assist: ${nameOf(event.assistPlayerId)})` : '';
-      return `GOAL! ${nameOf(event.playerId)} scores for ${teamNameFor(event.side)}${assist}`;
-    }
-    case 'SHOT_SAVED':
-      return `${nameOf(event.playerId)} (${teamNameFor(event.side)}) makes a save`;
-    case 'FOUL':
-      return `Foul by ${nameOf(event.playerId)} (${teamNameFor(event.side)})`;
-    case 'PAUSE':
-      return 'Match paused';
-    case 'RESUME':
-      return 'Match resumed';
-    case 'ADD_TIME':
-      return `${String(Math.round((event.addedSeconds ?? 0) / 60))} min added`;
-    case 'HALF_TIME':
-      return 'Half-time!';
-    case 'SECOND_HALF_START':
-      return event.side
-        ? `Second half under way — ${teamNameFor(event.side)} kick off.`
-        : 'Second half under way!';
-    case 'FULL_TIME':
-      return 'Full-time!';
-    default:
-      return event.type;
-  }
-}
-
 export default function MatchLive() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height && width >= 600;
+
+  const { data: me } = useMe();
+  const currentUserName = me?.player?.displayName || me?.name || me?.username || 'Player';
+
   const { data: match, isLoading: isMatchLoading, error } = useMatch(id);
   const { data: homeTeam } = useTeam(match?.homeTeam.id);
   const { data: awayTeam } = useTeam(match?.awayTeam.id);
@@ -166,10 +129,42 @@ export default function MatchLive() {
     queryClient.setQueryData(matchKeys.detail(id ?? ''), updated);
   }
 
+  const stadiumBackdrop = (
+    <>
+      <Image
+        source={pitchBg}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11, 20, 14, 0.85)' }]} />
+      <LinearGradient
+        colors={[
+          'rgba(52, 211, 153, 0.28)',
+          'rgba(16, 185, 129, 0.12)',
+          'rgba(6, 25, 16, 0.65)',
+          'rgba(11, 20, 14, 0.96)',
+        ]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={['rgba(255, 255, 255, 0.16)', 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.35 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+    </>
+  );
+
   if (isMatchLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#000000" />
+      <View className="flex-1 items-center justify-center bg-[#0b140e]">
+        {stadiumBackdrop}
+        <ActivityIndicator color="#ffffff" />
       </View>
     );
   }
@@ -178,17 +173,18 @@ export default function MatchLive() {
     const notFound = error instanceof ApiError && error.code === 'NOT_FOUND';
 
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-black">
+      <View className="flex-1 items-center justify-center bg-[#0b140e] px-6">
+        {stadiumBackdrop}
+        <Text className="text-base font-bold text-white">
           {notFound ? 'Match not found.' : 'Could not load this match — try again.'}
         </Text>
         <Pressable
           onPress={() => router.replace('/(tabs)')}
           accessibilityLabel="Go to Home"
           accessibilityHint="Returns to the home screen"
-          className="mt-4 rounded-lg border border-gray-300 px-4 py-2"
+          className="mt-4 rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 active:bg-white/20"
         >
-          <Text className="font-bold text-black">Go to Home</Text>
+          <Text className="font-bold text-white">Go to Home</Text>
         </Pressable>
       </View>
     );
@@ -202,7 +198,7 @@ export default function MatchLive() {
   const isEnded = match.status === 'FULL_TIME';
 
   const header = (
-    <View className="flex-row items-center justify-between border-b border-gray-200 px-4 pb-3 pt-14">
+    <View className="flex-row items-center justify-between border-b border-white/10 px-4 pb-3 pt-14">
       <Pressable
         onPress={() => {
           if (isEnded) {
@@ -225,22 +221,25 @@ export default function MatchLive() {
             ? 'Returns to the previous screen'
             : "Returns to player setup — the match keeps running, this doesn't pause or end it"
         }
-        className="flex-row items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1.5"
+        className="flex-row items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 active:bg-white/20"
       >
-        <ArrowLeft color="#000000" size={16} />
-        <Text className="text-xs font-bold text-black">{isEnded ? 'Back' : 'Setup'}</Text>
+        <ArrowLeft color="#ffffff" size={16} />
+        <Text className="text-xs font-bold text-white">{isEnded ? 'Back' : 'Setup'}</Text>
       </Pressable>
-      <Text className="text-sm font-bold uppercase tracking-wide text-gray-500">
-        {isEnded ? 'Match Ended' : 'Live Match'}
-      </Text>
+      <View className="flex-row items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-3 py-1">
+        <View className={`h-2 w-2 rounded-full ${isEnded ? 'bg-slate-400' : 'bg-emerald-400'}`} />
+        <Text className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+          {isEnded ? 'Match Ended' : 'Live Match'}
+        </Text>
+      </View>
       {canEndMatch ? (
         <Pressable
           onPress={() => setActiveModal({ kind: 'end-match' })}
           accessibilityLabel="End Match"
           accessibilityHint="Ends the match now, at any point — this cannot be undone"
-          className="rounded-full border border-gray-300 px-3 py-1.5"
+          className="rounded-full border border-red-500/40 bg-red-950/60 px-3 py-1.5 active:bg-red-900/60"
         >
-          <Text className="text-xs font-bold text-red-700">End</Text>
+          <Text className="text-xs font-bold text-red-400">End</Text>
         </Pressable>
       ) : (
         <View style={{ width: 86 }} />
@@ -297,10 +296,11 @@ export default function MatchLive() {
 
   if (!homeTeam || !awayTeam || !formationsQuery.data) {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-[#0b140e]">
+        {stadiumBackdrop}
         {header}
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#000000" />
+          <ActivityIndicator color="#ffffff" />
         </View>
       </View>
     );
@@ -322,18 +322,6 @@ export default function MatchLive() {
 
   const homeTeamName = match.homeTeam.name;
   const awayTeamName = match.awayTeam.name;
-
-  function teamNameFor(side: Side | null): string {
-    if (side === 'HOME') {
-      return homeTeamName;
-    }
-
-    if (side === 'AWAY') {
-      return awayTeamName;
-    }
-
-    return '';
-  }
 
   const starters = buildStarters(match.lineups, homeTeam, awayTeam);
   const goalkeepers = starters.filter((option) => option.isGoalkeeper);
@@ -367,85 +355,50 @@ export default function MatchLive() {
     };
   });
 
-  const scoreboard = (
-    <Scoreboard
+  const currentElapsed = match.state ? computeElapsedSec(match.state, nowMs) : 0;
+  const currentMinute = currentElapsed > 0 ? Math.max(1, Math.ceil(currentElapsed / 60)) : 1;
+
+  const renderTimeline = (isFullHeight = false) => (
+    <EventsTimeline
+      events={match.events}
       homeTeamName={match.homeTeam.name}
       awayTeamName={match.awayTeam.name}
-      homeScore={match.state?.homeScore ?? 0}
-      awayScore={match.state?.awayScore ?? 0}
-      homeLogoUrl={homeTeam?.logoUrl}
-      awayLogoUrl={awayTeam?.logoUrl}
-      period={match.state?.period ?? (match.status === 'HALF_TIME' ? 'HALF_TIME' : 'FULL_TIME')}
-      showClockHud={false}
+      nameOf={nameOf}
+      isMatchLive={match.status === 'LIVE' || match.status === 'PAUSED'}
+      isFullHeight={isFullHeight}
+      currentUserName={currentUserName}
+      currentMinute={currentMinute}
     />
-  );
-
-  const commentary = (
-    <View className="mt-6">
-      <Text className="text-base font-bold text-black">Commentary</Text>
-      {match.events.length === 0 ? (
-        <Text className="mt-2 text-sm text-gray-500">No action yet.</Text>
-      ) : (
-        [...match.events].reverse().map((event) => (
-          <View
-            key={event.id}
-            className="mt-2 flex-row items-start gap-2 border-b border-gray-100 pb-2"
-          >
-            <Text className="font-mono text-xs font-bold text-gray-500">
-              {periodLabel(event.period) || '—'} {formatClock(event.matchClockSec)}
-            </Text>
-            <Text className="flex-1 text-sm text-black">
-              {describeEvent(event, nameOf, teamNameFor)}
-            </Text>
-          </View>
-        ))
-      )}
-    </View>
   );
 
   if (match.status === 'HALF_TIME') {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-[#0b140e]">
+        {stadiumBackdrop}
         {header}
-        <ScrollView className="flex-1 bg-white" contentContainerClassName="px-6 pb-16 pt-4">
-          {scoreboard}
-          <Text className="mt-2 text-center text-sm font-bold uppercase tracking-wide text-gray-500">
-            Half Time
-          </Text>
-          {match.canScore ? (
-            <>
-              {startSecondHalf.isError ? (
-                <Text className="mt-2 text-center text-xs text-red-700">
-                  Could not start the second half — try again
-                </Text>
-              ) : null}
-              <Pressable
-                onPress={() => {
-                  startSecondHalf.mutate(undefined, {
-                    onSuccess: applyUpdate,
-                    onError: (startError) => {
-                      console.error('POST /matches/:id/second-half failed:', startError);
-                    },
-                  });
-                }}
-                disabled={startSecondHalf.isPending}
-                accessibilityLabel="Kick Off Second Half"
-                accessibilityHint="Starts the second half's clock now"
-                className="mx-auto mt-4 flex-row items-center gap-2 rounded-lg bg-black px-8 py-4"
-              >
-                {startSecondHalf.isPending ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <>
-                    <Play color="#ffffff" size={18} />
-                    <Text className="text-base font-bold text-white">Kick Off 2nd Half</Text>
-                  </>
-                )}
-              </Pressable>
-            </>
-          ) : null}
-          {commentary}
-        </ScrollView>
+        <HalfTimeView
+          homeTeamName={match.homeTeam.name}
+          awayTeamName={match.awayTeam.name}
+          homeScore={match.state?.homeScore ?? 0}
+          awayScore={match.state?.awayScore ?? 0}
+          homeLogoUrl={homeTeam.logoUrl}
+          awayLogoUrl={awayTeam.logoUrl}
+          canScore={match.canScore}
+          isStartingSecondHalf={startSecondHalf.isPending}
+          isSecondHalfError={startSecondHalf.isError}
+          onStartSecondHalf={() => {
+            startSecondHalf.mutate(undefined, {
+              onSuccess: applyUpdate,
+              onError: (startError) => {
+                console.error('POST /matches/:id/second-half failed:', startError);
+              },
+            });
+          }}
+          events={match.events}
+          nameOf={nameOf}
+          currentUserName={currentUserName}
+          currentMinute={currentMinute}
+        />
         {endMatchModal}
       </View>
     );
@@ -453,25 +406,31 @@ export default function MatchLive() {
 
   if (match.status === 'FULL_TIME') {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-[#0b140e]">
+        {stadiumBackdrop}
         {header}
-        <ScrollView className="flex-1 bg-white" contentContainerClassName="px-6 pb-16 pt-4">
-          {scoreboard}
-          <Text className="mt-2 text-center text-sm font-bold uppercase tracking-wide text-gray-500">
-            Full Time — Match Ended
-          </Text>
-          {commentary}
-        </ScrollView>
+        <FullTimeView
+          homeTeamName={match.homeTeam.name}
+          awayTeamName={match.awayTeam.name}
+          homeScore={match.state?.homeScore ?? 0}
+          awayScore={match.state?.awayScore ?? 0}
+          homeLogoUrl={homeTeam.logoUrl}
+          awayLogoUrl={awayTeam.logoUrl}
+          events={match.events}
+          nameOf={nameOf}
+          currentUserName={currentUserName}
+        />
       </View>
     );
   }
 
   if (match.status !== 'LIVE' && match.status !== 'PAUSED') {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 items-center justify-center bg-[#0b140e]">
+        {stadiumBackdrop}
         {header}
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#000000" />
+          <ActivityIndicator color="#ffffff" />
         </View>
       </View>
     );
@@ -481,10 +440,11 @@ export default function MatchLive() {
 
   if (!state) {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 items-center justify-center bg-[#0b140e]">
+        {stadiumBackdrop}
         {header}
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#000000" />
+          <ActivityIndicator color="#ffffff" />
         </View>
       </View>
     );
@@ -515,101 +475,126 @@ export default function MatchLive() {
     );
   }
 
+  const matchHUDAndPitch = (
+    <>
+      <Scoreboard
+        homeTeamName={match.homeTeam.name}
+        awayTeamName={match.awayTeam.name}
+        homeScore={match.state?.homeScore ?? 0}
+        awayScore={match.state?.awayScore ?? 0}
+        homeLogoUrl={homeTeam.logoUrl}
+        awayLogoUrl={awayTeam.logoUrl}
+        period={state.period}
+        elapsedSec={elapsedSec}
+        halfLimitSec={halfLimitSec}
+        addedTimeSec={state.addedTimeSec}
+        timeUp={timeUp}
+        showClockHud={true}
+      />
+
+      <MatchControls
+        period={state.period}
+        isPaused={isPaused}
+        canScore={match.canScore}
+        isPausePending={pauseMatch.isPending}
+        isResumePending={resumeMatch.isPending}
+        isEndFirstHalfPending={endFirstHalf.isPending}
+        isEndMatchPending={endMatch.isPending}
+        isAddTimePending={addTime.isPending}
+        onTogglePause={() => {
+          const mutation = isPaused ? resumeMatch : pauseMatch;
+          mutation.mutate(undefined, {
+            onSuccess: applyUpdate,
+            onError: (toggleError) => {
+              console.error('Pause/resume failed:', toggleError);
+            },
+          });
+        }}
+        onEndFirstHalf={() => {
+          endFirstHalf.mutate(undefined, {
+            onSuccess: applyUpdate,
+            onError: (htError) => {
+              console.error('POST /matches/:id/half-time failed:', htError);
+            },
+          });
+        }}
+        onEndMatch={() => setActiveModal({ kind: 'end-match' })}
+        onAddTime={(seconds) => {
+          addTime.mutate(seconds, {
+            onSuccess: applyUpdate,
+            onError: (addTimeError) => {
+              console.error('POST /matches/:id/add-time failed:', addTimeError);
+            },
+          });
+        }}
+      />
+
+      {pauseMatch.isError ||
+      resumeMatch.isError ||
+      endFirstHalf.isError ||
+      endMatch.isError ||
+      addTime.isError ? (
+        <Text className="mt-2 text-center text-xs text-red-400">Could not do that — try again</Text>
+      ) : null}
+
+      {recordEvent.isError ? (
+        <Text className="mt-2 text-center text-xs text-red-400">
+          Could not record that — try again
+        </Text>
+      ) : null}
+
+      <View className="mt-4">
+        <FootballPitch
+          homeLabel={match.homeTeam.name}
+          awayLabel={match.awayTeam.name}
+          homeSlots={homePitchSlots}
+          awaySlots={awayPitchSlots}
+          interactive={false}
+        />
+      </View>
+
+      {match.canScore ? (
+        <MatchActionBar
+          onGoalPress={() => setActiveModal({ kind: 'goal' })}
+          onSavePress={() => setActiveModal({ kind: 'save' })}
+          onFoulPress={() => setActiveModal({ kind: 'foul' })}
+          disabled={recordEvent.isPending || isPaused}
+          isPaused={isPaused}
+        />
+      ) : null}
+    </>
+  );
+
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-[#0b140e]">
+      {stadiumBackdrop}
       {header}
 
-      <ScrollView className="flex-1 bg-white" contentContainerClassName="px-6 pb-16 pt-4">
-        <Scoreboard
-          homeTeamName={match.homeTeam.name}
-          awayTeamName={match.awayTeam.name}
-          homeScore={match.state?.homeScore ?? 0}
-          awayScore={match.state?.awayScore ?? 0}
-          homeLogoUrl={homeTeam.logoUrl}
-          awayLogoUrl={awayTeam.logoUrl}
-          period={state.period}
-          elapsedSec={elapsedSec}
-          halfLimitSec={halfLimitSec}
-          addedTimeSec={state.addedTimeSec}
-          timeUp={timeUp}
-          showClockHud={true}
-        />
+      {isLandscape ? (
+        <View className="flex-1 flex-row gap-4 px-4 pb-4 pt-2">
+          {/* Left Column (Landscape): HUD, Pitch & Controls */}
+          <ScrollView
+            className="flex-1"
+            showsVerticalScrollIndicator={false}
+            contentContainerClassName="pb-10"
+          >
+            {matchHUDAndPitch}
+          </ScrollView>
 
-        <MatchControls
-          period={state.period}
-          isPaused={isPaused}
-          canScore={match.canScore}
-          isPausePending={pauseMatch.isPending}
-          isResumePending={resumeMatch.isPending}
-          isEndFirstHalfPending={endFirstHalf.isPending}
-          isEndMatchPending={endMatch.isPending}
-          isAddTimePending={addTime.isPending}
-          onTogglePause={() => {
-            const mutation = isPaused ? resumeMatch : pauseMatch;
-            mutation.mutate(undefined, {
-              onSuccess: applyUpdate,
-              onError: (toggleError) => {
-                console.error('Pause/resume failed:', toggleError);
-              },
-            });
-          }}
-          onEndFirstHalf={() => {
-            endFirstHalf.mutate(undefined, {
-              onSuccess: applyUpdate,
-              onError: (htError) => {
-                console.error('POST /matches/:id/half-time failed:', htError);
-              },
-            });
-          }}
-          onEndMatch={() => setActiveModal({ kind: 'end-match' })}
-          onAddTime={(seconds) => {
-            addTime.mutate(seconds, {
-              onSuccess: applyUpdate,
-              onError: (addTimeError) => {
-                console.error('POST /matches/:id/add-time failed:', addTimeError);
-              },
-            });
-          }}
-        />
-
-        {pauseMatch.isError ||
-        resumeMatch.isError ||
-        endFirstHalf.isError ||
-        endMatch.isError ||
-        addTime.isError ? (
-          <Text className="mt-2 text-center text-xs text-red-700">
-            Could not do that — try again
-          </Text>
-        ) : null}
-
-        {recordEvent.isError ? (
-          <Text className="mt-2 text-center text-xs text-red-700">
-            Could not record that — try again
-          </Text>
-        ) : null}
-
-        <View className="mt-4">
-          <FootballPitch
-            homeLabel={match.homeTeam.name}
-            awayLabel={match.awayTeam.name}
-            homeSlots={homePitchSlots}
-            awaySlots={awayPitchSlots}
-            interactive={false}
-          />
+          {/* Right Column (Landscape): Full-height Vertical Sports Timeline & Chat */}
+          <View className="h-full w-[38%] max-w-md">{renderTimeline(true)}</View>
         </View>
-
-        {match.canScore ? (
-          <MatchActionBar
-            onGoalPress={() => setActiveModal({ kind: 'goal' })}
-            onSavePress={() => setActiveModal({ kind: 'save' })}
-            onFoulPress={() => setActiveModal({ kind: 'foul' })}
-            disabled={recordEvent.isPending || isPaused}
-            isPaused={isPaused}
-          />
-        ) : null}
-
-        {commentary}
-      </ScrollView>
+      ) : (
+        /* Portrait Column: Vertical flow with fixed-height commentary at bottom */
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-4 pb-16 pt-2"
+          showsVerticalScrollIndicator={false}
+        >
+          {matchHUDAndPitch}
+          <View className="mt-4">{renderTimeline(false)}</View>
+        </ScrollView>
+      )}
 
       <GoalFlowSheet
         visible={activeModal?.kind === 'goal'}

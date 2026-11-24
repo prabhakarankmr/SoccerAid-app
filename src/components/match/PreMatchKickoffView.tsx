@@ -96,7 +96,7 @@ export function PreMatchKickoffView({
   ];
 
   return (
-    <View className="flex-1 bg-black">
+    <View className="flex-1 bg-[#0b140e]">
       {/* Stadium Pitch Backdrop */}
       <Image
         source={pitchBg}
@@ -105,13 +105,13 @@ export function PreMatchKickoffView({
         style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
       />
       {/* Dark Contrast Scrim & Floodlight Gradients */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(3, 10, 6, 0.78)' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11, 20, 14, 0.85)' }]} />
       <LinearGradient
         colors={[
           'rgba(52, 211, 153, 0.28)',
           'rgba(16, 185, 129, 0.12)',
           'rgba(6, 25, 16, 0.65)',
-          'rgba(2, 6, 4, 0.96)',
+          'rgba(11, 20, 14, 0.96)',
         ]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
