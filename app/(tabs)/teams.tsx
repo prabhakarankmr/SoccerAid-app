@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 
+import { SlidingSegmentedControl } from '../../src/components/ui/SlidingSegmentedControl';
 import { TeamSummary, useOpponentTeams, useOwnedTeams } from '../../src/hooks/useTeams';
 
 type Segment = 'our' | 'opponents';
@@ -82,24 +83,19 @@ export default function Teams() {
           ) : null}
         </View>
 
-        <View className="mt-4 flex-row rounded-lg border border-gray-300 bg-gray-100 p-1">
-          <Pressable
-            onPress={() => setSegment('our')}
-            accessibilityLabel="Our Teams"
-            accessibilityHint="Shows teams you own"
-            className={`flex-1 items-center rounded-md py-2 ${segment === 'our' ? 'bg-white' : ''}`}
-          >
-            <Text className="font-bold text-black">Our Teams</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setSegment('opponents')}
-            accessibilityLabel="Opponent Teams"
-            accessibilityHint="Shows teams that have played against your teams"
-            className={`flex-1 items-center rounded-md py-2 ${segment === 'opponents' ? 'bg-white' : ''}`}
-          >
-            <Text className="font-bold text-black">Opponent Teams</Text>
-          </Pressable>
-        </View>
+        <SlidingSegmentedControl
+          options={[
+            { value: 'our', label: 'Our Teams', accessibilityHint: 'Shows teams you own' },
+            {
+              value: 'opponents',
+              label: 'Opponent Teams',
+              accessibilityHint: 'Shows teams that have played against your teams',
+            },
+          ]}
+          selectedValue={segment}
+          onSelect={setSegment}
+          className="mt-4"
+        />
 
         <View className="mt-4 flex-row items-center rounded-lg border border-gray-300 bg-white px-3">
           <SearchIcon color="#000000" size={18} />

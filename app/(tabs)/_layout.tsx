@@ -5,14 +5,19 @@ import Radio from 'lucide-react-native/icons/radio';
 import User from 'lucide-react-native/icons/user';
 import Users from 'lucide-react-native/icons/users';
 import { useEffect, useState } from 'react';
-import { Keyboard, Platform } from 'react-native';
+import { Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useMe } from '../../src/hooks/useMe';
 import { useAuthStore } from '../../src/stores/authStore';
 
+// Max pill width — wider screens (web preview) shouldn't stretch it edge-to-edge.
+const TAB_BAR_MAX_WIDTH = 480;
+const TAB_BAR_H_PADDING = 24; // gap from screen edge on narrow phones
+
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
@@ -50,6 +55,11 @@ export default function TabsLayout() {
     };
   }, []);
 
+  // Compute centered left/right so the pill is always horizontally centered and never
+  // wider than TAB_BAR_MAX_WIDTH, regardless of screen width.
+  const pillWidth = Math.min(screenWidth - TAB_BAR_H_PADDING * 2, TAB_BAR_MAX_WIDTH);
+  const pillLeft = (screenWidth - pillWidth) / 2;
+
   return (
     <Tabs
       screenOptions={{
@@ -62,8 +72,8 @@ export default function TabsLayout() {
           display: keyboardVisible ? 'none' : 'flex',
           position: 'absolute',
           bottom: insets.bottom + 16,
-          left: 24,
-          right: 24,
+          left: pillLeft,
+          right: pillLeft,
           height: 64,
           borderRadius: 999,
           backgroundColor: '#ffffff',

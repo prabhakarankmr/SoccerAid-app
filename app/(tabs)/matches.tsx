@@ -3,6 +3,7 @@ import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { SlidingSegmentedControl } from '../../src/components/ui/SlidingSegmentedControl';
 import { MatchSummary, useMatchesList } from '../../src/hooks/useMatches';
 
 type Segment = 'live' | 'ended';
@@ -64,24 +65,19 @@ export default function Matches() {
           : 'Matches that have finished.'}
       </Text>
 
-      <View className="mt-4 flex-row rounded-lg border border-gray-300 bg-gray-100 p-1">
-        <Pressable
-          onPress={() => setSegment('live')}
-          accessibilityLabel="Live Matches"
-          accessibilityHint="Shows matches currently in progress"
-          className={`flex-1 items-center rounded-md py-2 ${segment === 'live' ? 'bg-white' : ''}`}
-        >
-          <Text className="font-bold text-black">Live</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setSegment('ended')}
-          accessibilityLabel="Ended Matches"
-          accessibilityHint="Shows matches that have finished"
-          className={`flex-1 items-center rounded-md py-2 ${segment === 'ended' ? 'bg-white' : ''}`}
-        >
-          <Text className="font-bold text-black">Ended</Text>
-        </Pressable>
-      </View>
+      <SlidingSegmentedControl
+        options={[
+          {
+            value: 'live',
+            label: 'Live',
+            accessibilityHint: 'Shows matches currently in progress',
+          },
+          { value: 'ended', label: 'Ended', accessibilityHint: 'Shows matches that have finished' },
+        ]}
+        selectedValue={segment}
+        onSelect={setSegment}
+        className="mt-4"
+      />
 
       {matchesQuery.isLoading ? (
         <ActivityIndicator className="mt-8" color="#000000" />

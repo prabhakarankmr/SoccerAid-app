@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import { metaKeys } from '../api/queryKeys';
+import { DEFAULT_FORMATIONS } from '../config/formations';
 
 export interface Format {
   playersPerSide: number;
@@ -32,10 +33,21 @@ export function useFormats() {
 }
 
 export function useFormations(playersPerSide: number | undefined) {
+  const fallback = DEFAULT_FORMATIONS[playersPerSide ?? 0] ?? [];
   return useQuery({
     queryKey: metaKeys.formations(playersPerSide ?? 0),
-    queryFn: () =>
-      apiClient.get<Formation[]>(`/meta/formations?playersPerSide=${String(playersPerSide)}`),
+    queryFn: async () => {
+      try {
+        const data = await apiClient.get<Formation[]>(
+          `/meta/formations?playersPerSide=${String(playersPerSide)}`,
+        );
+        if (data && data.length > 0) return data;
+      } catch {
+        // Fall back to clean anti-collision formations
+      }
+      return fallback;
+    },
+    initialData: () => fallback,
     enabled: Boolean(playersPerSide),
     staleTime: Infinity,
   });

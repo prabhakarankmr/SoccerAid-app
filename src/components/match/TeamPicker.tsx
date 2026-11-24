@@ -35,6 +35,8 @@ const TAB_LABELS: Record<PickerTab, string> = {
 interface TeamPickerProps {
   visible: boolean;
   title: string;
+  disabledPlayerIds?: string[];
+  disabledReason?: string;
   onClose: () => void;
   // playerIds: who from the roster is actually playing this match — not the full roster
   // necessarily, a team's books can list more people than show up to any one game.
@@ -75,7 +77,14 @@ function TeamRow({ team, onPress }: { team: TeamSummary; onPress: () => void }) 
  * *any* team by code via `GET /teams/by-code` — not scoped to owned/opponent teams, since the
  * whole point of scanning is finding a team you have no prior relationship with yet.
  */
-export function TeamPicker({ visible, title, onClose, onSelect }: TeamPickerProps) {
+export function TeamPicker({
+  visible,
+  title,
+  disabledPlayerIds = [],
+  disabledReason,
+  onClose,
+  onSelect,
+}: TeamPickerProps) {
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const [tab, setTab] = useState<PickerTab>('mine');
@@ -104,6 +113,10 @@ export function TeamPicker({ visible, title, onClose, onSelect }: TeamPickerProp
   const rosterTeamDetail = useTeam(rosterTeam?.id);
 
   function togglePlayerSelected(playerId: string) {
+    if (disabledPlayerIds.includes(playerId)) {
+      return;
+    }
+
     setDeselectedPlayerIds((prev) => {
       const next = new Set(prev);
 
@@ -160,12 +173,14 @@ export function TeamPicker({ visible, title, onClose, onSelect }: TeamPickerProp
     setRosterTeam(team);
     setRosterQuery('');
     setIsAddingPlayer(false);
-    setDeselectedPlayerIds(new Set());
+    setDeselectedPlayerIds(new Set(disabledPlayerIds));
   }
 
   function confirmSelection() {
     const playerIds = (rosterTeamDetail.data?.players ?? [])
-      .filter((player) => !deselectedPlayerIds.has(player.id))
+      .filter(
+        (player) => !deselectedPlayerIds.has(player.id) && !disabledPlayerIds.includes(player.id),
+      )
       .map((player) => player.id);
 
     if (rosterTeam && playerIds.length > 0) {
@@ -209,7 +224,7 @@ export function TeamPicker({ visible, title, onClose, onSelect }: TeamPickerProp
   const isAddValid = name.trim().length > 0 && Boolean(selectedCaptain);
   const rosterPlayers = rosterTeamDetail.data?.players ?? [];
   const selectedCount = rosterPlayers.filter(
-    (player) => !deselectedPlayerIds.has(player.id),
+    (player) => !deselectedPlayerIds.has(player.id) && !disabledPlayerIds.includes(player.id),
   ).length;
 
   return (
@@ -319,37 +334,77 @@ export function TeamPicker({ visible, title, onClose, onSelect }: TeamPickerProp
                     }
 
                     return filtered.map((player) => {
-                      const isSelected = !deselectedPlayerIds.has(player.id);
+                      const isDisabled = disabledPlayerIds.includes(player.id);
+                      const isSelected = !isDisabled && !deselectedPlayerIds.has(player.id);
 
                       return (
                         <Pressable
                           key={player.id}
-                          onPress={() => togglePlayerSelected(player.id)}
-                          accessibilityLabel={`${player.displayName}, ${isSelected ? 'playing' : 'not playing'}`}
-                          accessibilityHint="Toggles whether this player is playing in the match"
-                          className={`mt-2 flex-row items-center rounded-lg border px-3 py-3 ${
-                            isSelected ? 'border-black bg-gray-100' : 'border-gray-300 bg-white'
+                          onPress={() => !isDisabled && togglePlayerSelected(player.id)}
+                          disabled={isDisabled}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${player.displayName}${
+                            isDisabled
+                              ? `, disabled, ${disabledReason ?? 'already selected on opposing team'}`
+                              : isSelected
+                                ? ', playing'
+                                : ', not playing'
+                          }`}
+                          accessibilityHint={
+                            isDisabled
+                              ? (disabledReason ??
+                                'Cannot select player already chosen for opposing team')
+                              : 'Toggles whether this player is playing in the match'
+                          }
+                          className={`mt-2 flex-row items-center rounded-xl border px-3 py-3 ${
+                            isDisabled
+                              ? 'border-gray-200 bg-gray-50 opacity-60'
+                              : isSelected
+                                ? 'border-black bg-gray-100'
+                                : 'border-gray-300 bg-white'
                           }`}
                         >
                           <View
                             className={`items-center justify-center rounded-full border ${
-                              isSelected ? 'border-black bg-black' : 'border-gray-400 bg-white'
+                              isDisabled
+                                ? 'border-gray-300 bg-gray-200'
+                                : isSelected
+                                  ? 'border-black bg-black'
+                                  : 'border-gray-400 bg-white'
                             }`}
                             style={{ width: 18, height: 18 }}
                           >
                             {isSelected ? <Text className="text-xs text-white">✓</Text> : null}
                           </View>
-                          <Text className="ml-2 flex-1 text-black">{player.displayName}</Text>
-                          {player.isCaptain ? (
-                            <View className="ml-2 rounded-full bg-gray-100 px-2 py-0.5">
-                              <Text className="text-xs font-bold text-black">Captain</Text>
+                          <Text
+                            className={`ml-2.5 flex-1 ${
+                              isDisabled
+                                ? 'font-normal italic text-gray-400'
+                                : 'font-medium text-black'
+                            }`}
+                          >
+                            {player.displayName}
+                          </Text>
+                          {isDisabled ? (
+                            <View className="ml-2 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5">
+                              <Text className="text-[10px] font-semibold text-amber-800">
+                                {disabledReason ?? 'Playing for opposing team'}
+                              </Text>
                             </View>
-                          ) : null}
-                          {player.isGuest ? (
-                            <View className="ml-2 rounded-full bg-gray-100 px-2 py-0.5">
-                              <Text className="text-xs font-bold text-gray-500">Guest</Text>
-                            </View>
-                          ) : null}
+                          ) : (
+                            <>
+                              {player.isCaptain ? (
+                                <View className="ml-2 rounded-full bg-gray-100 px-2 py-0.5">
+                                  <Text className="text-xs font-bold text-black">Captain</Text>
+                                </View>
+                              ) : null}
+                              {player.isGuest ? (
+                                <View className="ml-2 rounded-full bg-gray-100 px-2 py-0.5">
+                                  <Text className="text-xs font-bold text-gray-500">Guest</Text>
+                                </View>
+                              ) : null}
+                            </>
+                          )}
                         </Pressable>
                       );
                     });
