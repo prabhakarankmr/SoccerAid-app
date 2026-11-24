@@ -3,12 +3,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import Play from 'lucide-react-native/icons/play';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ApiError } from '../../../src/api/client';
 import { matchKeys } from '../../../src/api/queryKeys';
+import { EndMatchConfirmSheet } from '../../../src/components/match/EndMatchConfirmSheet';
+import { GoalFlowSheet, StarterOption } from '../../../src/components/match/GoalFlowSheet';
 import { MatchActionBar } from '../../../src/components/match/MatchActionBar';
 import { MatchControls } from '../../../src/components/match/MatchControls';
+import { PlayerEventSheet } from '../../../src/components/match/PlayerEventSheet';
 import { PreMatchKickoffView } from '../../../src/components/match/PreMatchKickoffView';
 import { Scoreboard } from '../../../src/components/match/Scoreboard';
 import { FootballPitch, PitchSlot } from '../../../src/components/pitch/FootballPitch';
@@ -31,20 +34,8 @@ import {
 } from '../../../src/hooks/useMatches';
 import { TeamDetail, useTeam } from '../../../src/hooks/useTeams';
 
-interface StarterOption {
-  side: Side;
-  playerId: string;
-  displayName: string;
-  isGoalkeeper: boolean;
-}
-
 type ActiveModal =
-  | { kind: 'goal-scorer' }
-  | { kind: 'goal-assist'; side: Side; scorerId: string; scorerName: string }
-  | { kind: 'save' }
-  | { kind: 'foul' }
-  | { kind: 'end-match' }
-  | null;
+  { kind: 'goal' } | { kind: 'save' } | { kind: 'foul' } | { kind: 'end-match' } | null;
 
 function formatClock(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -138,162 +129,6 @@ function describeEvent(
     default:
       return event.type;
   }
-}
-
-interface PlayerPickerModalProps {
-  visible: boolean;
-  title: string;
-  options: StarterOption[];
-  teamNameFor: (side: Side) => string;
-  extraAction?: { label: string; onPress: () => void };
-  onSelect: (option: StarterOption) => void;
-  onCancel: () => void;
-  disabled: boolean;
-}
-
-function PlayerPickerModal({
-  visible,
-  title,
-  options,
-  teamNameFor,
-  extraAction,
-  onSelect,
-  onCancel,
-  disabled,
-}: PlayerPickerModalProps) {
-  const sides: Side[] = ['HOME', 'AWAY'];
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable
-        onPress={onCancel}
-        accessibilityLabel="Close"
-        accessibilityHint="Closes this without recording anything"
-        className="flex-1 justify-end bg-black/50"
-      >
-        <Pressable
-          onPress={() => {}}
-          accessible={false}
-          className="max-h-[75%] rounded-t-2xl bg-white px-5 pb-8 pt-5"
-        >
-          <Text className="text-lg font-bold text-black">{title}</Text>
-          <ScrollView className="mt-3">
-            {sides.map((side) => {
-              const sideOptions = options.filter((option) => option.side === side);
-
-              if (sideOptions.length === 0) {
-                return null;
-              }
-
-              return (
-                <View key={side} className="mb-3">
-                  <Text className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">
-                    {teamNameFor(side)}
-                  </Text>
-                  {sideOptions.map((option) => (
-                    <Pressable
-                      key={option.playerId}
-                      onPress={() => onSelect(option)}
-                      disabled={disabled}
-                      accessibilityLabel={option.displayName}
-                      accessibilityHint="Selects this player"
-                      className="mb-2 rounded-lg border border-gray-300 px-3 py-2.5"
-                    >
-                      <Text className="text-sm font-bold text-black">
-                        {option.displayName}
-                        {option.isGoalkeeper ? ' (GK)' : ''}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              );
-            })}
-          </ScrollView>
-          {extraAction ? (
-            <Pressable
-              onPress={extraAction.onPress}
-              disabled={disabled}
-              accessibilityLabel={extraAction.label}
-              accessibilityHint="Records this without an assist"
-              className="mt-1 items-center rounded-lg border border-gray-300 py-3"
-            >
-              <Text className="text-sm font-bold text-black">{extraAction.label}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            onPress={onCancel}
-            accessibilityLabel="Cancel"
-            accessibilityHint="Closes this without recording anything"
-            className="mt-2 items-center py-2"
-          >
-            <Text className="text-sm font-bold text-gray-500">Cancel</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-interface ConfirmModalProps {
-  visible: boolean;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  disabled: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-// RN's Alert.alert doesn't work on web (react-native-web has no implementation) — this app
-// exports to web, so a confirmation for a destructive action has to be a real component, not
-// a native alert.
-function ConfirmModal({
-  visible,
-  title,
-  message,
-  confirmLabel,
-  disabled,
-  onConfirm,
-  onCancel,
-}: ConfirmModalProps) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable
-        onPress={onCancel}
-        accessibilityLabel="Close"
-        accessibilityHint="Closes this without doing anything"
-        className="flex-1 items-center justify-center bg-black/50 px-6"
-      >
-        <Pressable
-          onPress={() => {}}
-          accessible={false}
-          className="w-full max-w-sm rounded-2xl bg-white p-5"
-        >
-          <Text className="text-lg font-bold text-black">{title}</Text>
-          <Text className="mt-2 text-sm text-gray-600">{message}</Text>
-          <View className="mt-5 flex-row gap-2">
-            <Pressable
-              onPress={onCancel}
-              accessibilityLabel="Cancel"
-              accessibilityHint="Closes this without doing anything"
-              className="flex-1 items-center rounded-lg border border-gray-300 py-3"
-            >
-              <Text className="text-sm font-bold text-black">Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={onConfirm}
-              disabled={disabled}
-              accessibilityLabel={confirmLabel}
-              accessibilityHint="This cannot be undone"
-              className="flex-1 items-center rounded-lg bg-red-600 py-3"
-            >
-              <Text className="text-sm font-bold text-white">{confirmLabel}</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
 }
 
 export default function MatchLive() {
@@ -414,12 +249,13 @@ export default function MatchLive() {
   );
 
   const endMatchModal = (
-    <ConfirmModal
+    <EndMatchConfirmSheet
       visible={activeModal?.kind === 'end-match'}
-      title="End Match?"
-      message="This ends the match right now, whatever time is showing. This cannot be undone."
-      confirmLabel="End Match"
       disabled={endMatch.isPending}
+      homeTeamName={match.homeTeam.name}
+      awayTeamName={match.awayTeam.name}
+      homeScore={match.state?.homeScore ?? 0}
+      awayScore={match.state?.awayScore ?? 0}
       onCancel={() => setActiveModal(null)}
       onConfirm={() => {
         endMatch.mutate(undefined, {
@@ -665,12 +501,12 @@ export default function MatchLive() {
     playerId: string,
     assistPlayerId?: string,
   ) {
+    setActiveModal(null);
     recordEvent.mutate(
       { type, side, playerId, assistPlayerId, clientEventId: makeClientEventId() },
       {
         onSuccess: (updated) => {
           applyUpdate(updated);
-          setActiveModal(null);
         },
         onError: (recordError) => {
           console.error('POST /matches/:id/events failed:', recordError);
@@ -764,7 +600,7 @@ export default function MatchLive() {
 
         {match.canScore ? (
           <MatchActionBar
-            onGoalPress={() => setActiveModal({ kind: 'goal-scorer' })}
+            onGoalPress={() => setActiveModal({ kind: 'goal' })}
             onSavePress={() => setActiveModal({ kind: 'save' })}
             onFoulPress={() => setActiveModal({ kind: 'foul' })}
             disabled={recordEvent.isPending || isPaused}
@@ -775,70 +611,42 @@ export default function MatchLive() {
         {commentary}
       </ScrollView>
 
-      <PlayerPickerModal
-        visible={activeModal?.kind === 'goal-scorer'}
-        title="Who scored?"
-        options={starters}
-        teamNameFor={teamNameFor}
+      <GoalFlowSheet
+        visible={activeModal?.kind === 'goal'}
         disabled={recordEvent.isPending}
-        onCancel={() => setActiveModal(null)}
-        onSelect={(option) =>
-          setActiveModal({
-            kind: 'goal-assist',
-            side: option.side,
-            scorerId: option.playerId,
-            scorerName: option.displayName,
-          })
-        }
-      />
-
-      <PlayerPickerModal
-        visible={activeModal?.kind === 'goal-assist'}
-        title={activeModal?.kind === 'goal-assist' ? `Who assisted ${activeModal.scorerName}?` : ''}
-        options={
-          activeModal?.kind === 'goal-assist'
-            ? starters.filter(
-                (option) =>
-                  option.side === activeModal.side && option.playerId !== activeModal.scorerId,
-              )
-            : []
-        }
-        teamNameFor={teamNameFor}
-        disabled={recordEvent.isPending}
-        onCancel={() => setActiveModal(null)}
-        extraAction={
-          activeModal?.kind === 'goal-assist'
-            ? {
-                label: 'No Assist',
-                onPress: () => submitEvent('GOAL', activeModal.side, activeModal.scorerId),
-              }
-            : undefined
-        }
-        onSelect={(option) => {
-          if (activeModal?.kind === 'goal-assist') {
-            submitEvent('GOAL', activeModal.side, activeModal.scorerId, option.playerId);
-          }
+        homeTeamName={homeTeamName}
+        awayTeamName={awayTeamName}
+        starters={starters}
+        onConfirmGoal={(side, scorerId, assistPlayerId) => {
+          submitEvent('GOAL', side, scorerId, assistPlayerId);
         }}
+        onCancel={() => setActiveModal(null)}
       />
 
-      <PlayerPickerModal
+      <PlayerEventSheet
         visible={activeModal?.kind === 'save'}
         title="Who made the save?"
+        subtitle="Select the goalkeeper who stopped the shot"
+        eventKind="save"
+        homeTeamName={homeTeamName}
+        awayTeamName={awayTeamName}
         options={goalkeepers}
-        teamNameFor={teamNameFor}
         disabled={recordEvent.isPending}
-        onCancel={() => setActiveModal(null)}
         onSelect={(option) => submitEvent('SHOT_SAVED', option.side, option.playerId)}
+        onCancel={() => setActiveModal(null)}
       />
 
-      <PlayerPickerModal
+      <PlayerEventSheet
         visible={activeModal?.kind === 'foul'}
         title="Who committed the foul?"
+        subtitle="Select the player penalized for the foul"
+        eventKind="foul"
+        homeTeamName={homeTeamName}
+        awayTeamName={awayTeamName}
         options={starters}
-        teamNameFor={teamNameFor}
         disabled={recordEvent.isPending}
-        onCancel={() => setActiveModal(null)}
         onSelect={(option) => submitEvent('FOUL', option.side, option.playerId)}
+        onCancel={() => setActiveModal(null)}
       />
 
       {endMatchModal}
