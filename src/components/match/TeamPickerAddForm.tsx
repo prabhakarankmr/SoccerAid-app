@@ -143,18 +143,14 @@ export function TeamPickerAddForm({
               )}
             </View>
             <View className="ml-3 flex-1">
-              <Text className={`text-[11px] font-bold uppercase tracking-wider ${slotBadgeText}`}>
-                New {slotLabel} Club
-              </Text>
+              <Text className={`text-xs font-semibold ${slotBadgeText}`}>New {slotLabel} team</Text>
               <Text className="text-base font-bold text-white" numberOfLines={1}>
-                {name.trim() || 'Enter team details'}
+                {name.trim() || 'Team profile'}
               </Text>
             </View>
           </View>
 
-          <Text className="text-xs font-bold uppercase tracking-wide text-slate-300">
-            Team Name
-          </Text>
+          <Text className="text-xs font-semibold text-slate-300">Team name</Text>
           <TextInput
             value={name}
             onChangeText={setName}

@@ -103,9 +103,7 @@ export function TeamDetailsModal({
               ) : (
                 <View className="flex-row items-center justify-between">
                   <View>
-                    <Text className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                      Captain
-                    </Text>
+                    <Text className="text-xs font-semibold text-slate-400">Captain</Text>
                     <Text className="mt-1 text-base font-semibold text-white">
                       {team.captain?.displayName ?? 'Not set'}
                     </Text>
@@ -126,18 +124,14 @@ export function TeamDetailsModal({
 
               {team.contactNumber ? (
                 <View className="mt-4 border-t border-white/10 pt-3">
-                  <Text className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Contact number
-                  </Text>
+                  <Text className="text-xs font-semibold text-slate-400">Contact number</Text>
                   <Text className="mt-1 text-sm font-medium text-white">{team.contactNumber}</Text>
                 </View>
               ) : null}
 
               {team.place ? (
                 <View className="mt-4 border-t border-white/10 pt-3">
-                  <Text className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Ground
-                  </Text>
+                  <Text className="text-xs font-semibold text-slate-400">Ground</Text>
                   <Text className="mt-1 text-sm font-medium text-white">{team.place}</Text>
                 </View>
               ) : null}

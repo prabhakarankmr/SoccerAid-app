@@ -44,7 +44,7 @@ export function ProfileEditCard({
 
   return (
     <View className="mt-6 rounded-2xl border border-white/15 bg-slate-900/85 p-5 shadow-sm">
-      <Text className="text-xs font-bold uppercase tracking-wide text-slate-300">Display Name</Text>
+      <Text className="text-xs font-semibold text-slate-300">Display name</Text>
       <TextInput
         value={displayName}
         onChangeText={onChangeDisplayName}
@@ -55,9 +55,7 @@ export function ProfileEditCard({
         className="mt-1.5 rounded-xl border border-white/15 bg-white/10 px-3.5 py-3 text-base text-white"
       />
 
-      <Text className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-300">
-        Username
-      </Text>
+      <Text className="mt-4 text-xs font-semibold text-slate-300">Username</Text>
       <View className="mt-1.5 flex-row items-center rounded-xl border border-white/15 bg-white/10 px-3.5">
         <Text className="text-base font-bold text-slate-400">@</Text>
         <TextInput
@@ -87,7 +85,7 @@ export function ProfileEditCard({
         <Text className="mt-1 text-xs text-red-300">That username is already taken</Text>
       ) : null}
 
-      <Text className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-300">Bio</Text>
+      <Text className="mt-4 text-xs font-semibold text-slate-300">Bio</Text>
       <TextInput
         value={bio}
         onChangeText={(text) => onChangeBio(text.slice(0, 160))}
@@ -102,9 +100,7 @@ export function ProfileEditCard({
         style={{ textAlignVertical: 'top' }}
       />
 
-      <Text className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-300">
-        Preferred Position
-      </Text>
+      <Text className="mt-4 text-xs font-semibold text-slate-300">Preferred position</Text>
       <TextInput
         value={preferredPosition}
         onChangeText={onChangePreferredPosition}

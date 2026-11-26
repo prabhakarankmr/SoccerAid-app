@@ -63,11 +63,6 @@ export default function Matches() {
           keyboardShouldPersistTaps="handled"
         >
           <Text className="text-2xl font-bold text-white">Matches</Text>
-          <Text className="mt-1 text-xs font-medium text-emerald-100/90">
-            {segment === 'live'
-              ? 'Live matches from every team — watch any of them.'
-              : 'Matches that have finished.'}
-          </Text>
 
           <SlidingSegmentedControl
             options={[
@@ -126,12 +121,16 @@ export default function Matches() {
                 accessibilityLabel="All formats"
                 accessibilityHint="Shows matches of all team sizes"
                 className={`rounded-full border px-3.5 py-1.5 ${
-                  activeFormat === null
-                    ? 'border-emerald-400 bg-emerald-500'
-                    : 'border-white/20 bg-white/15'
+                  activeFormat === null ? 'border-white bg-white' : 'border-white/20 bg-white/15'
                 }`}
               >
-                <Text className="text-xs font-bold text-white">All</Text>
+                <Text
+                  className={`text-xs font-bold ${
+                    activeFormat === null ? 'text-slate-900' : 'text-white'
+                  }`}
+                >
+                  All
+                </Text>
               </Pressable>
               {availableFormats.map((size) => {
                 const isSelected = activeFormat === size;
@@ -143,12 +142,12 @@ export default function Matches() {
                     accessibilityLabel={`${String(size)}v${String(size)} format`}
                     accessibilityHint={`Filters to ${String(size)}v${String(size)} matches`}
                     className={`rounded-full border px-3.5 py-1.5 ${
-                      isSelected
-                        ? 'border-emerald-400 bg-emerald-500'
-                        : 'border-white/20 bg-white/15'
+                      isSelected ? 'border-white bg-white' : 'border-white/20 bg-white/15'
                     }`}
                   >
-                    <Text className="text-xs font-bold text-white">
+                    <Text
+                      className={`text-xs font-bold ${isSelected ? 'text-slate-900' : 'text-white'}`}
+                    >
                       {size}v{size}
                     </Text>
                   </Pressable>

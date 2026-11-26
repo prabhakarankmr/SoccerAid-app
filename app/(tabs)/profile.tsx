@@ -157,23 +157,23 @@ export default function Profile() {
           <View className={`items-center ${isEditing ? 'mt-4' : 'mt-2'}`}>
             <View className="relative">
               <View
-                className="items-center justify-center rounded-full border-2 border-emerald-400/60 bg-emerald-500/20"
+                className="items-center justify-center rounded-full border-2 border-white/30 bg-white/15"
                 style={{ width: 88, height: 88 }}
               >
                 <Text className="text-3xl font-black text-white">{avatarLetter}</Text>
               </View>
               {isEditing ? (
                 <View
-                  className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-slate-900 bg-emerald-500"
+                  className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-slate-900 bg-white"
                   style={{ width: 28, height: 28 }}
                 >
-                  <Camera color="#ffffff" size={14} />
+                  <Camera color="#0f172a" size={14} />
                 </View>
               ) : null}
             </View>
 
             {isEditing ? (
-              <Text className="mt-2 text-xs font-medium text-emerald-100/80">
+              <Text className="mt-2 text-xs font-medium text-slate-300">
                 Photo upload coming soon
               </Text>
             ) : (
@@ -183,7 +183,7 @@ export default function Profile() {
                 </Text>
                 {me?.username ? (
                   <View className="mt-1 rounded-full bg-white/15 px-3 py-0.5">
-                    <Text className="text-xs font-semibold text-emerald-200">@{me.username}</Text>
+                    <Text className="text-xs font-medium text-slate-200">@{me.username}</Text>
                   </View>
                 ) : null}
               </>
@@ -212,9 +212,7 @@ export default function Profile() {
             <>
               <View className="mt-6 overflow-hidden rounded-2xl border border-white/20 bg-white/95 shadow-sm">
                 <View className="border-b border-slate-100 px-4 py-3.5">
-                  <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Bio
-                  </Text>
+                  <Text className="text-xs font-semibold text-slate-400">Bio</Text>
                   <Text className="mt-1 text-sm font-medium text-slate-900">
                     {me?.bio ?? 'No bio yet'}
                   </Text>
@@ -225,17 +223,13 @@ export default function Profile() {
                     me?.player?.preferredPosition ? 'border-b border-slate-100' : ''
                   }`}
                 >
-                  <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Phone
-                  </Text>
+                  <Text className="text-xs font-semibold text-slate-400">Phone</Text>
                   <Text className="mt-1 text-sm font-medium text-slate-900">{me?.phone}</Text>
                 </View>
 
                 {me?.player?.preferredPosition ? (
                   <View className="px-4 py-3.5">
-                    <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Preferred Position
-                    </Text>
+                    <Text className="text-xs font-semibold text-slate-400">Preferred position</Text>
                     <Text className="mt-1 text-sm font-medium text-slate-900">
                       {me.player.preferredPosition}
                     </Text>

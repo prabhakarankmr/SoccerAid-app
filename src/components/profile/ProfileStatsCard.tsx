@@ -27,39 +27,29 @@ export function ProfileStatsCard({ stats, isLoading }: ProfileStatsCardProps) {
               <Text className="text-3xl font-black text-slate-900">
                 {stats?.matchesPlayed ?? 0}
               </Text>
-              <Text className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Matches Played
-              </Text>
+              <Text className="text-xs font-semibold text-slate-500">Matches played</Text>
             </View>
 
             {/* Symmetrical 2x2 Grid */}
             <View className="flex-row border-b border-slate-200">
               <View className="flex-1 items-center border-r border-slate-200 py-4">
                 <Text className="text-2xl font-black text-slate-900">{stats?.goals ?? 0}</Text>
-                <Text className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Goals
-                </Text>
+                <Text className="mt-0.5 text-xs font-medium text-slate-500">Goals</Text>
               </View>
               <View className="flex-1 items-center py-4">
                 <Text className="text-2xl font-black text-slate-900">{stats?.assists ?? 0}</Text>
-                <Text className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Assists
-                </Text>
+                <Text className="mt-0.5 text-xs font-medium text-slate-500">Assists</Text>
               </View>
             </View>
 
             <View className="flex-row">
               <View className="flex-1 items-center border-r border-slate-200 py-4">
                 <Text className="text-2xl font-black text-slate-900">{stats?.saves ?? 0}</Text>
-                <Text className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Saves
-                </Text>
+                <Text className="mt-0.5 text-xs font-medium text-slate-500">Saves</Text>
               </View>
               <View className="flex-1 items-center py-4">
                 <Text className="text-2xl font-black text-slate-900">{stats?.fouls ?? 0}</Text>
-                <Text className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Fouls
-                </Text>
+                <Text className="mt-0.5 text-xs font-medium text-slate-500">Fouls</Text>
               </View>
             </View>
           </>

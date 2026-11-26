@@ -28,12 +28,10 @@ export function MatchFixtureCard({ match, segment, onPress }: MatchFixtureCardPr
         {isLive ? (
           <>
             <View className="mr-1.5 h-2 w-2 rounded-full bg-red-500" />
-            <Text className="text-[10px] font-bold uppercase tracking-wider text-white">Live</Text>
+            <Text className="text-[11px] font-bold text-white">Live</Text>
           </>
         ) : (
-          <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-200">
-            Full-Time
-          </Text>
+          <Text className="text-[11px] font-bold text-slate-200">Full-time</Text>
         )}
       </View>
 
