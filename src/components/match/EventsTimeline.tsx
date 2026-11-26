@@ -84,8 +84,8 @@ type FeedItem = { kind: 'event'; data: MatchEvent } | { kind: 'comment'; data: U
 
 export function EventsTimeline({
   events,
-  homeTeamName,
-  awayTeamName,
+  homeTeamName: _homeTeamName,
+  awayTeamName: _awayTeamName,
   nameOf,
   isFullHeight = false,
   currentUserName = 'Player',
@@ -219,15 +219,19 @@ export function EventsTimeline({
               const Icon = cfg.icon;
               const player = e.playerId ? nameOf(e.playerId) : null;
               const assist = e.assistPlayerId ? nameOf(e.assistPlayerId) : null;
-              const team =
-                e.side === 'HOME' ? homeTeamName : e.side === 'AWAY' ? awayTeamName : null;
+              const sideStripeClass =
+                e.side === 'HOME'
+                  ? 'border-l-4 border-l-orange-500'
+                  : e.side === 'AWAY'
+                    ? 'border-l-4 border-l-blue-500'
+                    : '';
 
               return (
                 <Animated.View
                   key={e.id}
                   entering={FadeInUp.duration(220)}
                   layout={LinearTransition.duration(200)}
-                  className="flex-row items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2"
+                  className={`flex-row items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2 ${sideStripeClass}`}
                 >
                   <View className="flex-1 flex-row items-center gap-2 pr-2">
                     <View className="rounded bg-white/10 px-1.5 py-0.5">
@@ -250,24 +254,6 @@ export function EventsTimeline({
                       ) : null}
                     </Text>
                   </View>
-                  {team ? (
-                    <View
-                      className={`rounded-full px-2 py-0.5 border ${
-                        e.side === 'HOME'
-                          ? 'border-orange-500/30 bg-orange-950/20'
-                          : 'border-blue-500/30 bg-blue-950/20'
-                      }`}
-                    >
-                      <Text
-                        className={`text-[9px] font-bold uppercase ${
-                          e.side === 'HOME' ? 'text-orange-400' : 'text-blue-400'
-                        }`}
-                        numberOfLines={1}
-                      >
-                        {team}
-                      </Text>
-                    </View>
-                  ) : null}
                 </Animated.View>
               );
             }

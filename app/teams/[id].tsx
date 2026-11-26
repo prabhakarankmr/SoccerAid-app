@@ -1,25 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import Pencil from 'lucide-react-native/icons/pencil';
-import Plus from 'lucide-react-native/icons/plus';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Crown from 'lucide-react-native/icons/crown';
+import QrCode from 'lucide-react-native/icons/qr-code';
+import Shield from 'lucide-react-native/icons/shield';
 import X from 'lucide-react-native/icons/x';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { apiClient, ApiError } from '../../src/api/client';
 import { teamKeys } from '../../src/api/queryKeys';
-import { MemberLookup } from '../../src/components/team/MemberLookup';
+import { TeamPickerFab } from '../../src/components/match/TeamPickerFab';
+import { AddPlayerPanel } from '../../src/components/team/AddPlayerPanel';
+import { TeamDetailsModal } from '../../src/components/team/TeamDetailsModal';
+import { StadiumBackdrop } from '../../src/components/ui/StadiumBackdrop';
 import { useMe } from '../../src/hooks/useMe';
-import { PlayerSummary } from '../../src/hooks/usePlayers';
 import { TeamDetail, useTeam } from '../../src/hooks/useTeams';
 
 export default function TeamDetailScreen() {
@@ -31,12 +26,9 @@ export default function TeamDetailScreen() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditingCaptain, setIsEditingCaptain] = useState(false);
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
-  const [guestName, setGuestName] = useState('');
 
   function updateCache(updated: TeamDetail) {
     queryClient.setQueryData(teamKeys.detail(id ?? ''), updated);
-    // The owned-teams list also shows captain — keep it in sync too rather than waiting for
-    // a refetch (TanStack Query matches by key prefix, see FRONTEND_INSTRUCTIONS.md §6.2).
     void queryClient.invalidateQueries({ queryKey: ['teams', 'owned'] });
   }
 
@@ -47,48 +39,14 @@ export default function TeamDetailScreen() {
       updateCache(updated);
       setIsEditingCaptain(false);
     },
-    onError: (error) => {
-      console.error('PUT /teams/:id/captain failed:', error);
-    },
-  });
-
-  const addMemberMutation = useMutation({
-    mutationFn: (playerId: string) =>
-      apiClient.post<TeamDetail>(`/teams/${id ?? ''}/members`, { playerId }),
-    onSuccess: (updated) => {
-      updateCache(updated);
-      setIsAddingPlayer(false);
-    },
-    onError: (error) => {
-      console.error('POST /teams/:id/members failed:', error);
-    },
-  });
-
-  const addGuestMutation = useMutation({
-    // Two calls, not one endpoint: create the name-only Player (no account, same mechanism
-    // as the old pre-MemberLookup captain flow — BACKEND_INSTRUCTIONS.md §7.2), then add them
-    // to this team's roster like any other player.
-    mutationFn: async (displayName: string) => {
-      const player = await apiClient.post<PlayerSummary>('/players', { displayName });
-      return apiClient.post<TeamDetail>(`/teams/${id ?? ''}/members`, { playerId: player.id });
-    },
-    onSuccess: (updated) => {
-      updateCache(updated);
-      setGuestName('');
-      setIsAddingPlayer(false);
-    },
-    onError: (error) => {
-      console.error('Add guest player failed:', error);
-    },
+    onError: (err) => console.error('PUT /teams/:id/captain failed:', err),
   });
 
   const removeMemberMutation = useMutation({
     mutationFn: (playerId: string) =>
       apiClient.delete<TeamDetail>(`/teams/${id ?? ''}/members/${playerId}`),
     onSuccess: updateCache,
-    onError: (error) => {
-      console.error('DELETE /teams/:id/members/:playerId failed:', error);
-    },
+    onError: (err) => console.error('DELETE /teams/:id/members/:playerId failed:', err),
   });
 
   function closeDetails() {
@@ -98,329 +56,242 @@ export default function TeamDetailScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#000000" />
+      <View
+        style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
+        className="items-center justify-center"
+      >
+        <StadiumBackdrop />
+        <ActivityIndicator color="#ffffff" />
       </View>
     );
   }
 
   if (!team) {
-    // A real 404 (team deleted, or a bad id) vs. anything else (network blip, server
-    // restarting, 5xx) — "Team not found" is only true for the former, and claiming it for a
-    // transient failure would send someone hunting for a team that's actually still there.
     const notFound = error instanceof ApiError && error.code === 'NOT_FOUND';
 
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-black">
+      <View
+        style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
+        className="items-center justify-center px-6"
+      >
+        <StadiumBackdrop />
+        <Text className="text-center text-base font-semibold text-white">
           {notFound ? 'Team not found.' : 'Could not load this team — try again.'}
         </Text>
         {!notFound ? (
           <Pressable
             onPress={() => void refetch()}
+            accessibilityRole="button"
             accessibilityLabel="Retry"
             accessibilityHint="Tries loading this team again"
-            className="mt-4 rounded-lg bg-black px-4 py-2"
+            className="mt-4 rounded-xl bg-emerald-500 px-5 py-2.5"
           >
             <Text className="font-bold text-white">Retry</Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => router.replace('/(tabs)')}
+          accessibilityRole="button"
           accessibilityLabel="Go to Home"
           accessibilityHint="Returns to the home screen"
-          className="mt-3 rounded-lg border border-gray-300 px-4 py-2"
+          className="mt-3 rounded-xl bg-white/20 px-5 py-2.5"
         >
-          <Text className="font-bold text-black">Go to Home</Text>
+          <Text className="font-bold text-white">Go to Home</Text>
         </Pressable>
       </View>
     );
   }
 
   const isOwner = me?.id === team.ownerId;
+  const pendingCaptainId = setCaptainMutation.isPending ? setCaptainMutation.variables : undefined;
 
   return (
-    <View className="flex-1 bg-white">
-      <ScrollView
-        className="flex-1 bg-white"
-        contentContainerClassName="items-center px-6 pb-16 pt-20"
-      >
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityLabel="Back to Teams"
-          accessibilityHint="Returns to the teams list"
-          className="self-start rounded-lg border border-gray-300 px-4 py-2"
-        >
-          <Text className="font-bold text-black">← Back</Text>
-        </Pressable>
+    <View style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}>
+      <StadiumBackdrop />
 
-        <Pressable
-          onPress={() => setIsDetailsOpen(true)}
-          accessibilityLabel={`${team.name} team details`}
-          accessibilityHint="Opens the QR code, code, captain, contact number and place for this team"
-          className="mt-6 items-center"
-        >
-          <View
-            className="items-center justify-center rounded-full border-2 border-gray-300 bg-gray-100"
-            style={{ width: 96, height: 96 }}
+      <View className="w-full max-w-xl flex-1 self-center">
+        <ScrollView className="flex-1" contentContainerClassName="px-5 pb-28 pt-14">
+          <View className="flex-row items-center justify-between">
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Teams"
+              accessibilityHint="Returns to the teams list"
+              className="h-10 w-10 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+            >
+              <ArrowLeft color="#ffffff" size={20} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => setIsDetailsOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="View QR and team details"
+              accessibilityHint="Opens the QR code, code, captain, contact number and place for this team"
+              className="h-10 w-10 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+            >
+              <QrCode color="#ffffff" size={18} />
+            </Pressable>
+          </View>
+
+          <Pressable
+            onPress={() => setIsDetailsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`${team.name} team details`}
+            accessibilityHint="Opens the QR code, code, captain, contact number and place for this team"
+            className="mt-4 items-center"
           >
-            <Text className="text-4xl font-bold text-black">
-              {team.name.trim().charAt(0).toUpperCase() || '?'}
+            <View className="h-20 w-20 items-center justify-center rounded-2xl border border-emerald-400/40 bg-emerald-500/20">
+              <Shield color="#10b981" fill="#d1fae5" size={38} />
+            </View>
+            <Text className="mt-3 text-2xl font-bold text-white">{team.name}</Text>
+            <View className="mt-1.5 rounded-full bg-white/15 px-3 py-1">
+              <Text className="text-[11px] font-bold uppercase tracking-wider text-emerald-200">
+                View details &amp; QR
+              </Text>
+            </View>
+          </Pressable>
+
+          <View className="mt-7 flex-row items-baseline justify-between">
+            <Text className="text-base font-bold text-white">Players</Text>
+            <Text className="text-xs font-medium text-emerald-100/90">
+              {team.players.length} {team.players.length === 1 ? 'player' : 'players'}
             </Text>
           </View>
-          <Text className="mt-3 text-2xl font-bold text-black">{team.name}</Text>
-          <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-black">
-            View details &amp; QR
-          </Text>
-        </Pressable>
 
-        <View className="mt-8 w-full max-w-sm">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-lg font-bold text-black">Players</Text>
-            {isOwner && !isAddingPlayer ? (
-              <Pressable
-                onPress={() => setIsAddingPlayer(true)}
-                accessibilityLabel="Add player"
-                accessibilityHint="Opens a search to add a player to this team"
-                className="flex-row items-center rounded-lg bg-black px-3 py-2"
-              >
-                <Plus color="#ffffff" size={16} />
-                <Text className="ml-1 text-sm font-bold text-white">Add</Text>
-              </Pressable>
-            ) : null}
-          </View>
-
-          {isAddingPlayer ? (
-            <View className="mt-2">
-              <MemberLookup
-                label="New player"
-                onSelect={(player) => addMemberMutation.mutate(player.id)}
-              />
-              {addMemberMutation.isError ? (
-                <Text className="mt-2 text-sm text-red-700">
-                  Could not add player — try again
-                  {__DEV__ && addMemberMutation.error instanceof Error
-                    ? ` (${addMemberMutation.error.message})`
-                    : ''}
-                </Text>
-              ) : null}
-
-              <View className="mt-4 flex-row items-center gap-2">
-                <View className="h-px flex-1 bg-gray-300" />
-                <Text className="text-xs font-bold text-black">OR</Text>
-                <View className="h-px flex-1 bg-gray-300" />
-              </View>
-
-              <Text className="mt-4 text-sm text-black">Add a guest player</Text>
-              <Text className="mt-0.5 text-xs text-black">
-                For someone without a SoccerAid account — just a name, no profile to maintain.
+          {removeMemberMutation.isError ? (
+            <View className="mt-2 rounded-lg bg-red-950/80 px-3 py-2">
+              <Text className="text-xs font-medium text-red-200">
+                Could not remove player — try again
               </Text>
-              <View className="mt-1 flex-row items-center gap-2">
-                <TextInput
-                  value={guestName}
-                  onChangeText={setGuestName}
-                  placeholder="Player name"
-                  accessibilityLabel="Guest player name"
-                  accessibilityHint="Adds a player who doesn't have a SoccerAid account"
-                  onSubmitEditing={() =>
-                    guestName.trim() && addGuestMutation.mutate(guestName.trim())
-                  }
-                  returnKeyType="done"
-                  className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
-                />
-                <Pressable
-                  onPress={() => addGuestMutation.mutate(guestName.trim())}
-                  disabled={!guestName.trim() || addGuestMutation.isPending}
-                  accessibilityLabel="Add guest player"
-                  accessibilityHint="Adds this guest player to the team"
-                  className={`items-center justify-center rounded-lg px-4 py-3 ${
-                    guestName.trim() && !addGuestMutation.isPending ? 'bg-black' : 'bg-gray-300'
-                  }`}
-                >
-                  {addGuestMutation.isPending ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text className="font-bold text-white">Add</Text>
-                  )}
-                </Pressable>
-              </View>
-              {addGuestMutation.isError ? (
-                <Text className="mt-2 text-sm text-red-700">
-                  Could not add guest player — try again
-                  {__DEV__ && addGuestMutation.error instanceof Error
-                    ? ` (${addGuestMutation.error.message})`
-                    : ''}
-                </Text>
-              ) : null}
-
-              <Pressable
-                onPress={() => {
-                  setIsAddingPlayer(false);
-                  setGuestName('');
-                  addGuestMutation.reset();
-                }}
-                accessibilityLabel="Cancel adding player"
-                accessibilityHint="Closes the player search"
-                className="mt-3 self-start"
-              >
-                <Text className="text-sm text-black">Cancel</Text>
-              </Pressable>
             </View>
           ) : null}
 
-          {removeMemberMutation.isError ? (
-            <Text className="mt-2 text-sm text-red-700">
-              Could not remove player — try again
-              {__DEV__ && removeMemberMutation.error instanceof Error
-                ? ` (${removeMemberMutation.error.message})`
-                : ''}
-            </Text>
+          {setCaptainMutation.isError ? (
+            <View className="mt-2 rounded-lg bg-red-950/80 px-3 py-2">
+              <Text className="text-xs font-medium text-red-200">
+                Could not update captain — try again
+              </Text>
+            </View>
           ) : null}
 
           {team.players.length === 0 ? (
-            <Text className="mt-3 text-black">No players added yet.</Text>
+            <View className="mt-3 rounded-2xl border border-white/15 bg-white/10 p-5">
+              <Text className="text-center text-sm font-medium text-white/90">
+                {isOwner ? 'No players yet — tap + to add one.' : 'No players added yet.'}
+              </Text>
+            </View>
           ) : (
-            team.players.map((player) => (
-              <View
-                key={player.id}
-                className="mt-2 flex-row items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-3"
-              >
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-black">{player.displayName}</Text>
-                  {player.isCaptain ? (
-                    <View className="rounded-full bg-gray-100 px-2 py-0.5">
-                      <Text className="text-xs font-bold text-black">Captain</Text>
-                    </View>
-                  ) : null}
-                  {player.isGuest ? (
-                    <View className="rounded-full bg-gray-100 px-2 py-0.5">
-                      <Text className="text-xs font-bold text-gray-500">Guest</Text>
-                    </View>
-                  ) : null}
-                </View>
-                {isOwner && !player.isCaptain ? (
-                  <Pressable
-                    onPress={() => removeMemberMutation.mutate(player.id)}
-                    disabled={removeMemberMutation.isPending}
-                    accessibilityLabel={`Remove ${player.displayName}`}
-                    accessibilityHint="Removes this player from the team"
+            <View className="mt-3 overflow-hidden rounded-2xl border border-white/20 bg-white/95 shadow-sm">
+              {team.players.map((player, index) => {
+                const initial = player.displayName.trim().charAt(0).toUpperCase() || '?';
+                const isLast = index === team.players.length - 1;
+
+                return (
+                  <View
+                    key={player.id}
+                    className={`flex-row items-center px-4 py-3 ${
+                      !isLast ? 'border-b border-slate-100' : ''
+                    }`}
                   >
-                    <X color="#b91c1c" size={18} />
-                  </Pressable>
-                ) : null}
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
-
-      <Modal
-        visible={isDetailsOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={closeDetails}
-      >
-        <Pressable
-          className="flex-1 justify-end bg-black/40"
-          onPress={closeDetails}
-          accessibilityLabel="Close team details"
-          accessibilityHint="Dismisses the team details panel"
-        >
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            accessibilityRole="none"
-            className="max-h-[85%] rounded-t-3xl bg-white px-6 pb-10 pt-3"
-          >
-            <View className="items-center">
-              <View className="h-1.5 w-12 rounded-full bg-gray-300" />
-            </View>
-
-            <View className="mt-3 flex-row items-center justify-between">
-              <Text className="text-lg font-bold text-black">Team details</Text>
-              <Pressable
-                onPress={closeDetails}
-                accessibilityLabel="Close"
-                accessibilityHint="Closes team details"
-              >
-                <X color="#000000" size={22} />
-              </Pressable>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View className="mt-4 items-center">
-                <View className="rounded-lg border border-gray-300 bg-white p-4">
-                  <QRCode value={team.code} size={160} color="#000000" backgroundColor="#ffffff" />
-                </View>
-                <Text className="mt-2 text-lg font-bold tracking-widest text-black">
-                  {team.code}
-                </Text>
-                <Text className="text-sm text-black">
-                  Share this code or QR for opponents to find you
-                </Text>
-              </View>
-
-              <View className="mt-6">
-                {isEditingCaptain ? (
-                  <View>
-                    <MemberLookup
-                      label="New captain"
-                      onSelect={(player) => setCaptainMutation.mutate(player.id)}
-                    />
-                    {setCaptainMutation.isError ? (
-                      <Text className="mt-2 text-sm text-red-700">
-                        Could not update captain — try again
-                        {__DEV__ && setCaptainMutation.error instanceof Error
-                          ? ` (${setCaptainMutation.error.message})`
-                          : ''}
-                      </Text>
-                    ) : null}
-                    <Pressable
-                      onPress={() => setIsEditingCaptain(false)}
-                      accessibilityLabel="Cancel editing captain"
-                      accessibilityHint="Closes the captain search without changing it"
-                      className="mt-2 self-start"
-                    >
-                      <Text className="text-sm text-black">Cancel</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <View className="flex-row items-center justify-between">
-                    <View>
-                      <Text className="text-sm text-black">Captain</Text>
-                      <Text className="mt-1 text-black">
-                        {team.captain?.displayName ?? 'Not set'}
-                      </Text>
+                    <View className="h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                      <Text className="text-sm font-bold text-emerald-700">{initial}</Text>
                     </View>
-                    {isOwner ? (
-                      <Pressable
-                        onPress={() => setIsEditingCaptain(true)}
-                        accessibilityLabel="Edit captain"
-                        accessibilityHint="Opens a search to change the team captain"
+
+                    <View className="ml-3 flex-1 flex-row items-center gap-2">
+                      <Text
+                        className="shrink text-base font-semibold text-slate-900"
+                        numberOfLines={1}
                       >
-                        <Pencil color="#000000" size={18} />
-                      </Pressable>
+                        {player.displayName}
+                      </Text>
+                      {player.isCaptain ? (
+                        <View className="rounded-full bg-slate-900 px-2 py-0.5">
+                          <Text className="text-[10px] font-bold text-white">Captain</Text>
+                        </View>
+                      ) : null}
+                      {player.isGuest ? (
+                        <View className="rounded-full bg-slate-100 px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-slate-600">Guest</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    {isOwner && !player.isCaptain ? (
+                      <View className="ml-2 flex-row items-center gap-1.5">
+                        <Pressable
+                          onPress={() => setCaptainMutation.mutate(player.id)}
+                          disabled={pendingCaptainId === player.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Make ${player.displayName} captain`}
+                          accessibilityHint="Promotes this player to team captain"
+                          className="h-8 w-8 items-center justify-center rounded-full bg-slate-100 active:bg-amber-100"
+                        >
+                          {pendingCaptainId === player.id ? (
+                            <ActivityIndicator color="#64748b" size="small" />
+                          ) : (
+                            <Crown color="#64748b" size={15} />
+                          )}
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() => removeMemberMutation.mutate(player.id)}
+                          disabled={removeMemberMutation.isPending}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${player.displayName}`}
+                          accessibilityHint="Removes this player from the team"
+                          className="h-8 w-8 items-center justify-center rounded-full bg-red-50 active:bg-red-100"
+                        >
+                          <X color="#dc2626" size={15} />
+                        </Pressable>
+                      </View>
                     ) : null}
                   </View>
-                )}
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
 
-                {team.contactNumber ? (
-                  <>
-                    <Text className="mt-4 text-sm text-black">Contact number</Text>
-                    <Text className="mt-1 text-black">{team.contactNumber}</Text>
-                  </>
-                ) : null}
+        {isOwner && !isAddingPlayer ? (
+          <TeamPickerFab
+            bottom={28}
+            accessibilityLabel="Add player"
+            accessibilityHint="Opens options to add a player to this team"
+            onPress={() => setIsAddingPlayer(true)}
+          />
+        ) : null}
 
-                {team.place ? (
-                  <>
-                    <Text className="mt-4 text-sm text-black">Place</Text>
-                    <Text className="mt-1 text-black">{team.place}</Text>
-                  </>
-                ) : null}
-              </View>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        {isAddingPlayer ? (
+          <View className="absolute inset-0 justify-end bg-black/60">
+            <Pressable
+              onPress={() => setIsAddingPlayer(false)}
+              accessibilityLabel="Dismiss add player sheet"
+              accessibilityHint="Closes the add-player sheet without adding a player"
+              className="flex-1"
+            />
+            <View className="rounded-t-3xl border-t border-white/15 bg-slate-900/95 px-5 pb-8 pt-3">
+              <View className="mb-4 h-1 w-10 self-center rounded-full bg-white/25" />
+              <AddPlayerPanel
+                teamId={team.id}
+                onAdded={() => setIsAddingPlayer(false)}
+                onCancel={() => setIsAddingPlayer(false)}
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <TeamDetailsModal
+        visible={isDetailsOpen}
+        team={team}
+        isOwner={isOwner}
+        isEditingCaptain={isEditingCaptain}
+        setCaptainPending={setCaptainMutation.isPending}
+        setCaptainError={setCaptainMutation.isError ? setCaptainMutation.error : null}
+        onSetIsEditingCaptain={setIsEditingCaptain}
+        onSelectCaptain={(playerId) => setCaptainMutation.mutate(playerId)}
+        onClose={closeDetails}
+      />
     </View>
   );
 }

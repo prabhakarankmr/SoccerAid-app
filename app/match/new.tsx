@@ -171,9 +171,6 @@ export default function MatchSetup() {
             </Pressable>
             <Text className="text-2xl font-bold text-white">New Match Setup</Text>
           </View>
-          <Text className="mt-1 text-center text-xs font-medium text-emerald-100/90">
-            Choose teams, format & match duration
-          </Text>
 
           {/* Unified "VS" Matchup Card */}
           <View className="mt-6">
@@ -238,7 +235,7 @@ export default function MatchSetup() {
                 <Text
                   className={`text-base font-bold ${canSubmit ? 'text-white' : 'text-white/40'}`}
                 >
-                  Set Up Lineups & Pitch →
+                  Set Up Lineups
                 </Text>
               )}
             </ScalePressable>
@@ -249,6 +246,7 @@ export default function MatchSetup() {
       <TeamPicker
         visible={pickerSlot !== null}
         title={pickerSlot === 'home' ? 'Select Team A' : 'Select Team B'}
+        teamSlot={pickerSlot ?? 'home'}
         disabledPlayerIds={opposingContext.disabledPlayerIds}
         disabledReason={opposingContext.disabledReason}
         onClose={() => setPickerSlot(null)}
