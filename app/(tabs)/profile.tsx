@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import Camera from 'lucide-react-native/icons/camera';
 import LogOut from 'lucide-react-native/icons/log-out';
@@ -11,12 +12,14 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import { ApiError, apiClient } from '../../src/api/client';
 import { meKeys } from '../../src/api/queryKeys';
+import { ProfileEditCard } from '../../src/components/profile/ProfileEditCard';
+import { ProfileStatsCard } from '../../src/components/profile/ProfileStatsCard';
+import { StadiumBackdrop } from '../../src/components/ui/StadiumBackdrop';
 import { Me, useMe } from '../../src/hooks/useMe';
 import { usePlayerStats } from '../../src/hooks/usePlayers';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -53,12 +56,7 @@ export default function Profile() {
       queryClient.setQueryData(meKeys.me, updated);
       setIsEditing(false);
     },
-    onError: (error) => {
-      // The on-screen message is deliberately generic; the real error (ApiError has
-      // .code/.message from the backend's envelope, or a network/validation error
-      // otherwise) goes to the console so it's actually diagnosable.
-      console.error('PATCH /me failed:', error);
-    },
+    onError: (error) => console.error('PATCH /me failed:', error),
   });
 
   function startEditing() {
@@ -72,8 +70,6 @@ export default function Profile() {
 
   async function handleLogout() {
     await logout();
-    // Cached `me` (and anything else) belongs to the session that just ended — don't let
-    // the next login flash stale data from a different account.
     queryClient.clear();
     router.replace('/(auth)/login');
   }
@@ -85,252 +81,181 @@ export default function Profile() {
   const avatarLetter = (isEditing ? displayName : me?.name)?.trim().charAt(0).toUpperCase() || '?';
 
   if (isMePending) {
-    // Covers the real (brief) initial-fetch window only.
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#000000" />
+      <View
+        style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
+        className="items-center justify-center"
+      >
+        <StadiumBackdrop />
+        <ActivityIndicator color="#ffffff" />
       </View>
     );
   }
 
   if (isMeError) {
-    // A *dead session* (401, refresh also rejected) never reaches here — authStore's
-    // refreshSession redirects to login itself before this ever settles into an error state
-    // (user report, 2026-11-18: this branch didn't exist yet, so any *other* failure — network
-    // error, 500, a backend that's simply not running — fell straight through to the normal
-    // render below with `me` undefined, which looked identical to a real-but-empty profile:
-    // "?" avatar, "No bio yet", a blank Phone field, no indication anything was actually wrong).
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-center text-black">Could not load your profile — try again.</Text>
+      <View
+        style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
+        className="items-center justify-center px-6"
+      >
+        <StadiumBackdrop />
+        <Text className="text-center text-base font-semibold text-white">
+          Could not load your profile — try again.
+        </Text>
         {__DEV__ && meError instanceof Error ? (
-          <Text className="mt-2 text-center text-xs text-gray-500">{meError.message}</Text>
+          <Text className="mt-2 text-center text-xs text-slate-300">{meError.message}</Text>
         ) : null}
         <Pressable
           onPress={() => void refetchMe()}
+          accessibilityRole="button"
           accessibilityLabel="Retry"
           accessibilityHint="Tries loading your profile again"
-          className="mt-4 rounded-lg border border-gray-300 px-4 py-2"
+          className="mt-4 rounded-xl bg-emerald-500 px-5 py-2.5"
         >
-          <Text className="font-bold text-black">Try Again</Text>
+          <Text className="font-bold text-white">Try Again</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    // KeyboardAvoidingView + ScrollView, not a plain View: without this the keyboard covers
-    // whichever field is focused instead of the screen scrolling it into view (§9).
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1"
+      style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
     >
-      <ScrollView
-        className="flex-1 bg-white"
-        contentContainerClassName="px-6 pb-32 pt-20"
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="items-center">
-          <View className="relative">
-            {/* Letter-avatar fallback — a real photo comes later via file storage; this isn't
-              a stub, it's the permanent empty/no-photo state most apps show regardless. The
-              camera badge in edit mode signals where upload will go without pretending it
-              works yet — tapping it would be a dead end, so it's not pressable. */}
-            <View
-              className="items-center justify-center rounded-full border-2 border-gray-300 bg-gray-100"
-              style={{ width: 88, height: 88 }}
-            >
-              <Text className="text-3xl font-bold text-black">{avatarLetter}</Text>
+      <StadiumBackdrop />
+
+      <View className="w-full max-w-xl flex-1 self-center">
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-5 pb-36 pt-14"
+          keyboardShouldPersistTaps="handled"
+        >
+          {!isEditing ? (
+            <View className="flex-row items-center justify-end gap-2.5">
+              <Pressable
+                onPress={startEditing}
+                accessibilityRole="button"
+                accessibilityLabel="Edit profile"
+                accessibilityHint="Opens the profile fields for editing"
+                className="h-10 w-10 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+              >
+                <Pencil color="#ffffff" size={18} />
+              </Pressable>
+              <Pressable
+                onPress={handleLogout}
+                accessibilityRole="button"
+                accessibilityLabel="Log out"
+                accessibilityHint="Signs you out of SoccerAid"
+                className="h-10 w-10 items-center justify-center rounded-full border border-red-400/30 bg-red-500/20 active:bg-red-500/35"
+              >
+                <LogOut color="#fca5a5" size={18} />
+              </Pressable>
             </View>
-            {isEditing ? (
+          ) : null}
+
+          <View className={`items-center ${isEditing ? 'mt-4' : 'mt-2'}`}>
+            <View className="relative">
               <View
-                className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-gray-300 bg-black"
-                style={{ width: 28, height: 28 }}
+                className="items-center justify-center rounded-full border-2 border-emerald-400/60 bg-emerald-500/20"
+                style={{ width: 88, height: 88 }}
               >
-                <Camera color="#ffffff" size={14} />
+                <Text className="text-3xl font-black text-white">{avatarLetter}</Text>
               </View>
-            ) : null}
-          </View>
-          {isEditing ? (
-            <Text className="mt-2 text-xs text-black">Photo upload coming soon</Text>
-          ) : (
-            <>
-              <Text className="mt-3 text-xl font-bold text-black">
-                {me?.name ?? 'Your profile'}
-              </Text>
-              {me?.username ? <Text className="text-black">@{me.username}</Text> : null}
-            </>
-          )}
-        </View>
-
-        {isEditing ? (
-          <View className="mt-6">
-            <Text className="text-sm text-black">Display name</Text>
-            <TextInput
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="e.g. Virat K"
-              accessibilityLabel="Display name"
-              accessibilityHint="The name other players will see"
-              className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
-            />
-
-            <Text className="mt-4 text-sm text-black">Username</Text>
-            <View className="mt-1 flex-row items-center rounded-lg border border-gray-300 bg-white px-3">
-              <Text className="text-base text-black">@</Text>
-              <TextInput
-                value={username}
-                onChangeText={(text) =>
-                  setUsername(
-                    text
-                      .toLowerCase()
-                      .replace(/[^a-z0-9_]/g, '')
-                      .slice(0, 20),
-                  )
-                }
-                placeholder="yourname"
-                autoCapitalize="none"
-                accessibilityLabel="Username"
-                accessibilityHint="3 to 20 characters: lowercase letters, numbers, underscores"
-                className="ml-1 flex-1 py-3 text-base text-black"
-              />
-            </View>
-            {username.length > 0 && !isUsernameValid ? (
-              <Text className="mt-1 text-sm text-red-700">
-                3-20 characters: lowercase letters, numbers, underscores only
-              </Text>
-            ) : null}
-            {usernameTaken ? (
-              <Text className="mt-1 text-sm text-red-700">That username is already taken</Text>
-            ) : null}
-
-            <Text className="mt-4 text-sm text-black">Bio</Text>
-            <TextInput
-              value={bio}
-              onChangeText={(text) => setBio(text.slice(0, 160))}
-              placeholder="Tell other players a bit about yourself"
-              multiline
-              numberOfLines={3}
-              maxLength={160}
-              accessibilityLabel="Bio"
-              accessibilityHint="Optional — a short description shown on your profile"
-              className="mt-1 h-20 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
-              style={{ textAlignVertical: 'top' }}
-            />
-
-            <Text className="mt-4 text-sm text-black">Preferred position</Text>
-            <TextInput
-              value={preferredPosition}
-              onChangeText={setPreferredPosition}
-              placeholder="e.g. Striker"
-              accessibilityLabel="Preferred position"
-              accessibilityHint="Optional — the position you usually play"
-              className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base text-black"
-            />
-
-            {mutation.isError && !usernameTaken ? (
-              <Text className="mt-2 text-sm text-red-700">
-                Could not save — try again
-                {__DEV__ && mutation.error instanceof Error ? ` (${mutation.error.message})` : ''}
-              </Text>
-            ) : null}
-
-            <View className="mt-6 flex-row gap-3">
-              <Pressable
-                onPress={() => setIsEditing(false)}
-                disabled={mutation.isPending}
-                accessibilityLabel="Cancel editing"
-                accessibilityHint="Discards changes and returns to your profile"
-                className="flex-1 items-center rounded-lg border border-gray-300 py-3"
-              >
-                <Text className="font-bold text-black">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => mutation.mutate()}
-                disabled={!isValid || mutation.isPending}
-                accessibilityLabel="Save profile"
-                accessibilityHint="Saves your changes"
-                className={`flex-1 items-center rounded-lg py-3 ${
-                  isValid && !mutation.isPending ? 'bg-black' : 'bg-gray-300'
-                }`}
-              >
-                {mutation.isPending ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text className="font-bold text-white">Save</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        ) : (
-          <>
-            <View className="mt-6 rounded-lg border border-gray-300 bg-white/80 p-4">
-              <Text className="text-sm text-black">Bio</Text>
-              <Text className="mt-1 text-black">{me?.bio ?? 'No bio yet'}</Text>
-
-              <Text className="mt-4 text-sm text-black">Phone</Text>
-              <Text className="mt-1 text-black">{me?.phone}</Text>
-
-              {me?.player?.preferredPosition ? (
-                <>
-                  <Text className="mt-4 text-sm text-black">Preferred position</Text>
-                  <Text className="mt-1 text-black">{me.player.preferredPosition}</Text>
-                </>
+              {isEditing ? (
+                <View
+                  className="absolute bottom-0 right-0 items-center justify-center rounded-full border-2 border-slate-900 bg-emerald-500"
+                  style={{ width: 28, height: 28 }}
+                >
+                  <Camera color="#ffffff" size={14} />
+                </View>
               ) : null}
             </View>
 
-            {me?.player ? (
-              <View className="mt-6">
-                <Text className="text-lg font-bold text-black">My Stats</Text>
-                {stats.isLoading ? (
-                  <ActivityIndicator className="mt-4" color="#000000" />
-                ) : (
-                  <View className="mt-3 flex-row flex-wrap gap-3">
-                    {[
-                      { label: 'Played', value: stats.data?.matchesPlayed ?? 0 },
-                      { label: 'Goals', value: stats.data?.goals ?? 0 },
-                      { label: 'Assists', value: stats.data?.assists ?? 0 },
-                      { label: 'Saves', value: stats.data?.saves ?? 0 },
-                      { label: 'Fouls', value: stats.data?.fouls ?? 0 },
-                    ].map((tile) => (
-                      <View
-                        key={tile.label}
-                        className="items-center rounded-lg border border-gray-300 bg-white px-4 py-3"
-                        style={{ minWidth: 88 }}
-                      >
-                        <Text className="text-2xl font-bold text-black">{tile.value}</Text>
-                        <Text className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                          {tile.label}
-                        </Text>
-                      </View>
-                    ))}
+            {isEditing ? (
+              <Text className="mt-2 text-xs font-medium text-emerald-100/80">
+                Photo upload coming soon
+              </Text>
+            ) : (
+              <>
+                <Text className="mt-3 text-2xl font-bold text-white">
+                  {me?.name ?? 'Your profile'}
+                </Text>
+                {me?.username ? (
+                  <View className="mt-1 rounded-full bg-white/15 px-3 py-0.5">
+                    <Text className="text-xs font-semibold text-emerald-200">@{me.username}</Text>
                   </View>
-                )}
+                ) : null}
+              </>
+            )}
+          </View>
+
+          {isEditing ? (
+            <ProfileEditCard
+              displayName={displayName}
+              onChangeDisplayName={setDisplayName}
+              username={username}
+              onChangeUsername={setUsername}
+              bio={bio}
+              onChangeBio={setBio}
+              preferredPosition={preferredPosition}
+              onChangePreferredPosition={setPreferredPosition}
+              isUsernameValid={isUsernameValid}
+              usernameTaken={usernameTaken}
+              isValid={isValid}
+              isPending={mutation.isPending}
+              error={mutation.isError ? mutation.error : null}
+              onCancel={() => setIsEditing(false)}
+              onSave={() => mutation.mutate()}
+            />
+          ) : (
+            <>
+              <View className="mt-6 overflow-hidden rounded-2xl border border-white/20 bg-white/95 shadow-sm">
+                <View className="border-b border-slate-100 px-4 py-3.5">
+                  <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Bio
+                  </Text>
+                  <Text className="mt-1 text-sm font-medium text-slate-900">
+                    {me?.bio ?? 'No bio yet'}
+                  </Text>
+                </View>
+
+                <View
+                  className={`px-4 py-3.5 ${
+                    me?.player?.preferredPosition ? 'border-b border-slate-100' : ''
+                  }`}
+                >
+                  <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Phone
+                  </Text>
+                  <Text className="mt-1 text-sm font-medium text-slate-900">{me?.phone}</Text>
+                </View>
+
+                {me?.player?.preferredPosition ? (
+                  <View className="px-4 py-3.5">
+                    <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Preferred Position
+                    </Text>
+                    <Text className="mt-1 text-sm font-medium text-slate-900">
+                      {me.player.preferredPosition}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
 
-            <Pressable
-              onPress={startEditing}
-              accessibilityLabel="Edit profile"
-              accessibilityHint="Opens the profile fields for editing"
-              className="mt-6 flex-row items-center justify-center rounded-lg bg-black px-5 py-4"
-            >
-              <Pencil color="#ffffff" size={18} />
-              <Text className="ml-2 text-base font-bold text-white">Edit Profile</Text>
-            </Pressable>
+              {me?.player ? (
+                <ProfileStatsCard stats={stats.data} isLoading={stats.isLoading} />
+              ) : null}
+            </>
+          )}
+        </ScrollView>
 
-            <Pressable
-              onPress={handleLogout}
-              accessibilityLabel="Log out"
-              accessibilityHint="Signs you out of SoccerAid"
-              className="mt-3 flex-row items-center justify-center rounded-lg border border-red-300 bg-red-50 px-5 py-4"
-            >
-              <LogOut color="#b91c1c" size={20} />
-              <Text className="ml-2 text-base font-bold text-red-700">Log out</Text>
-            </Pressable>
-          </>
-        )}
-      </ScrollView>
+        <LinearGradient
+          colors={['transparent', 'rgba(11, 20, 14, 0.75)', 'rgba(11, 20, 14, 0.96)']}
+          pointerEvents="none"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 140 }}
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 }
