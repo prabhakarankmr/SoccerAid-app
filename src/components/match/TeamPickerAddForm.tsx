@@ -26,16 +26,24 @@ const CAPTAIN_MODE_OPTIONS: { value: CaptainMode; label: string; accessibilityHi
 ];
 
 interface TeamPickerAddFormProps {
-  teamSlot: 'home' | 'away';
+  teamSlot?: 'home' | 'away' | 'club';
+  submitLabel?: string;
+  showBackPill?: boolean;
   onBack: () => void;
   onCreated: (team: TeamSummary) => void;
 }
 
 /**
- * Dark glassmorphic card form for creating a new team in TeamPicker:
+ * Dark glassmorphic card form for creating a new team (shared by TeamPicker and teams/new.tsx):
  * live club crest preview, one-tap "Me (Use my profile)" shortcut, and collapsible optional fields.
  */
-export function TeamPickerAddForm({ teamSlot, onBack, onCreated }: TeamPickerAddFormProps) {
+export function TeamPickerAddForm({
+  teamSlot = 'home',
+  submitLabel = 'Save & Select',
+  showBackPill = true,
+  onBack,
+  onCreated,
+}: TeamPickerAddFormProps) {
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const [name, setName] = useState('');
@@ -46,13 +54,25 @@ export function TeamPickerAddForm({ teamSlot, onBack, onCreated }: TeamPickerAdd
   const [captainMode, setCaptainMode] = useState<CaptainMode>('appUser');
   const [guestName, setGuestName] = useState('');
 
-  const accent = teamSlot === 'away' ? teamB : teamA;
+  const accent =
+    teamSlot === 'away'
+      ? teamB
+      : teamSlot === 'club'
+        ? { fill: '#10b981', chipBg: '#d1fae5' }
+        : teamA;
   const badgeBg =
     teamSlot === 'away'
       ? 'border-blue-400/40 bg-blue-500/20'
-      : 'border-orange-400/40 bg-orange-500/20';
-  const slotLabel = teamSlot === 'away' ? 'Team B' : 'Team A';
-  const slotBadgeText = teamSlot === 'away' ? 'text-blue-300' : 'text-orange-300';
+      : teamSlot === 'club'
+        ? 'border-emerald-400/40 bg-emerald-500/20'
+        : 'border-orange-400/40 bg-orange-500/20';
+  const slotLabel = teamSlot === 'away' ? 'Team B' : teamSlot === 'club' ? 'SoccerAid' : 'Team A';
+  const slotBadgeText =
+    teamSlot === 'away'
+      ? 'text-blue-300'
+      : teamSlot === 'club'
+        ? 'text-emerald-300'
+        : 'text-orange-300';
 
   const createGuestMutation = useMutation({
     mutationFn: (displayName: string) => apiClient.post<PlayerSummary>('/players', { displayName }),
@@ -93,16 +113,18 @@ export function TeamPickerAddForm({ teamSlot, onBack, onCreated }: TeamPickerAdd
 
   return (
     <View className="flex-1 pt-2">
-      <Pressable
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="Back to teams"
-        accessibilityHint="Returns to the team list"
-        className="mb-2 flex-row items-center self-start rounded-full bg-white/20 px-3.5 py-2 active:bg-white/30"
-      >
-        <ArrowLeft color="#ffffff" size={15} />
-        <Text className="ml-1.5 text-xs font-bold text-white">Back to teams</Text>
-      </Pressable>
+      {showBackPill ? (
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back to teams"
+          accessibilityHint="Returns to the team list"
+          className="mb-2 flex-row items-center self-start rounded-full bg-white/20 px-3.5 py-2 active:bg-white/30"
+        >
+          <ArrowLeft color="#ffffff" size={15} />
+          <Text className="ml-1.5 text-xs font-bold text-white">Back to teams</Text>
+        </Pressable>
+      ) : null}
 
       <ScrollView
         className="flex-1"
@@ -302,7 +324,7 @@ export function TeamPickerAddForm({ teamSlot, onBack, onCreated }: TeamPickerAdd
               <ActivityIndicator color="#ffffff" />
             ) : (
               <Text className={`text-base font-bold ${canSubmit ? 'text-white' : 'text-white/40'}`}>
-                Save &amp; Select
+                {submitLabel}
               </Text>
             )}
           </ScalePressable>
