@@ -55,11 +55,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
 
+    // Matches src/api/client.ts's request timeout — a hung fetch here would otherwise never
+    // reach either branch below and leave the caller's original request stuck pending forever.
+    const timeoutController = new AbortController();
+    const timeout = setTimeout(() => timeoutController.abort(), 15_000);
+
     try {
       const res = await fetch(`${env.apiUrl}/api/${API_VERSION}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
+        signal: timeoutController.signal,
       });
 
       if (!res.ok) {
@@ -78,10 +84,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await get().setTokens(json.data);
       return true;
     } catch {
-      // Network failure reaching /auth/refresh — the refresh token itself might still be
-      // good, so don't log the user out over a connectivity blip. The caller's original
+      // Network failure (or timeout) reaching /auth/refresh — the refresh token itself might
+      // still be good, so don't log the user out over a connectivity blip. The caller's original
       // request still fails; it'll just retry next time there's a network.
       return false;
+    } finally {
+      clearTimeout(timeout);
     }
   },
 

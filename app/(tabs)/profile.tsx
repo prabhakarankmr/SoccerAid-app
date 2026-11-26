@@ -27,13 +27,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 export default function Profile() {
-  const {
-    data: me,
-    isPending: isMePending,
-    isError: isMeError,
-    error: meError,
-    refetch: refetchMe,
-  } = useMe();
+  const { data: me, isPending: isMePending, isError: isMeError } = useMe();
   const stats = usePlayerStats(me?.player?.id);
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
@@ -80,7 +74,10 @@ export default function Profile() {
     mutation.error instanceof ApiError && mutation.error.code === 'USERNAME_TAKEN';
   const avatarLetter = (isEditing ? displayName : me?.name)?.trim().charAt(0).toUpperCase() || '?';
 
-  if (isMePending) {
+  if (isMePending || isMeError) {
+    // On error this is a brief transitional state, not a dead end: app/(tabs)/_layout.tsx's
+    // guard sees the same `useMe()` failure and immediately logs out + redirects to login — there
+    // is no "stay here and retry" offered, since a failed account fetch always means login again.
     return (
       <View
         style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
@@ -88,32 +85,6 @@ export default function Profile() {
       >
         <StadiumBackdrop />
         <ActivityIndicator color="#ffffff" />
-      </View>
-    );
-  }
-
-  if (isMeError) {
-    return (
-      <View
-        style={{ flex: 1, backgroundColor: '#0b140e', position: 'relative' }}
-        className="items-center justify-center px-6"
-      >
-        <StadiumBackdrop />
-        <Text className="text-center text-base font-semibold text-white">
-          Could not load your profile — try again.
-        </Text>
-        {__DEV__ && meError instanceof Error ? (
-          <Text className="mt-2 text-center text-xs text-slate-300">{meError.message}</Text>
-        ) : null}
-        <Pressable
-          onPress={() => void refetchMe()}
-          accessibilityRole="button"
-          accessibilityLabel="Retry"
-          accessibilityHint="Tries loading your profile again"
-          className="mt-4 rounded-xl bg-emerald-500 px-5 py-2.5"
-        >
-          <Text className="font-bold text-white">Try Again</Text>
-        </Pressable>
       </View>
     );
   }

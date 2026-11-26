@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 import { Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ApiError } from '../../src/api/client';
 import { useMe } from '../../src/hooks/useMe';
 import { useAuthStore } from '../../src/stores/authStore';
 
@@ -24,15 +23,16 @@ export default function TabsLayout() {
   const logout = useAuthStore((state) => state.logout);
   // Every screen in this group assumes a valid session (most directly render `useMe()` data).
   // `app/index.tsx`'s gate only checks that a refresh token exists in storage, not that it's
-  // still valid server-side — a token that went bad after that check (expired, revoked, or a
-  // failed refresh that didn't clear it because the failure was a network error rather than a
-  // rejection, see `authStore.refreshSession`) would otherwise land here and render broken
-  // "no user" screens (empty name/phone, blank-looking profile) instead of sending the person
-  // back to log in.
+  // still valid server-side or even reachable — a token that went bad after that check (expired,
+  // revoked, a failed refresh, or the API simply being unreachable) would otherwise land here and
+  // render broken "no user" screens (empty name/phone, blank-looking profile) or get stuck on a
+  // dead-end error screen instead of sending the person back to log in. So this treats *any*
+  // failure to confirm the account — 401, network error, backend down, whatever — the same way:
+  // log out and go to login. There's no partial-credit "stay logged in but broken" state.
   const { error: meError } = useMe();
 
   useEffect(() => {
-    if (meError instanceof ApiError && meError.code === 'UNAUTHORIZED') {
+    if (meError) {
       void logout().then(() => {
         queryClient.clear();
         router.replace('/(auth)/login');

@@ -15,19 +15,34 @@ export class ApiError extends Error {
   }
 }
 
+// Without this, an unreachable API (wrong host, cold-starting backend, dropped connection) can
+// leave `fetch` neither resolving nor rejecting — the caller's loading state then never settles
+// into an error, so nothing downstream (e.g. the logged-out redirect in app/(tabs)/_layout.tsx)
+// ever gets a chance to run.
+const REQUEST_TIMEOUT_MS = 15_000;
+
 async function request<T>(path: string, options: RequestInit = {}, canRetry = true): Promise<T> {
   const { accessToken } = useAuthStore.getState();
 
-  const res = await fetch(`${env.apiUrl}/api/${API_VERSION}${path}`, {
-    ...options,
-    headers: {
-      // Only set when there's a body — Fastify's JSON body parser rejects an empty body if
-      // Content-Type says json (DELETE, and any bodyless GET, has no body to parse).
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...options.headers,
-    },
-  });
+  const timeoutController = new AbortController();
+  const timeout = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${env.apiUrl}/api/${API_VERSION}${path}`, {
+      ...options,
+      signal: timeoutController.signal,
+      headers: {
+        // Only set when there's a body — Fastify's JSON body parser rejects an empty body if
+        // Content-Type says json (DELETE, and any bodyless GET, has no body to parse).
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...options.headers,
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (res.status === 401 && canRetry) {
     const refreshed = await useAuthStore.getState().refreshSession();
