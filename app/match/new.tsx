@@ -249,6 +249,7 @@ export default function MatchSetup() {
       <TeamPicker
         visible={pickerSlot !== null}
         title={pickerSlot === 'home' ? 'Select Team A' : 'Select Team B'}
+        teamSlot={pickerSlot ?? 'home'}
         disabledPlayerIds={opposingContext.disabledPlayerIds}
         disabledReason={opposingContext.disabledReason}
         onClose={() => setPickerSlot(null)}

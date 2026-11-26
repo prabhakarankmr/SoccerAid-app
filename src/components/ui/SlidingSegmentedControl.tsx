@@ -19,6 +19,7 @@ export interface SlidingSegmentedControlProps<T extends string> {
   selectedValue: T;
   onSelect: (value: T) => void;
   className?: string;
+  inactiveTextClassName?: string;
 }
 
 const CONTAINER_PADDING = 4;
@@ -28,6 +29,7 @@ export function SlidingSegmentedControl<T extends string>({
   selectedValue,
   onSelect,
   className,
+  inactiveTextClassName = 'text-gray-600',
 }: SlidingSegmentedControlProps<T>) {
   const [containerWidth, setContainerWidth] = useState(0);
   const reducedMotion = useReducedMotion();
@@ -118,7 +120,7 @@ export function SlidingSegmentedControl<T extends string>({
             accessibilityHint={option.accessibilityHint}
             className="flex-1 items-center justify-center rounded-md py-2"
           >
-            <Text className={`font-bold ${isSelected ? 'text-black' : 'text-gray-600'}`}>
+            <Text className={`font-bold ${isSelected ? 'text-black' : inactiveTextClassName}`}>
               {option.label}
             </Text>
           </Pressable>
