@@ -13,6 +13,7 @@ export interface FullTimeViewProps {
   homeLogoUrl?: string | null;
   awayLogoUrl?: string | null;
   events: MatchEvent[];
+  halfDurationSec: number;
   nameOf: (playerId: string | null) => string;
   currentUserName: string;
 }
@@ -25,9 +26,11 @@ export function FullTimeView({
   homeLogoUrl,
   awayLogoUrl,
   events,
+  halfDurationSec,
   nameOf,
   currentUserName,
 }: FullTimeViewProps) {
+  const fullTimeMinutes = Math.max(1, Math.round(halfDurationSec / 60)) * 2;
   return (
     <ScrollView
       className="flex-1"
@@ -56,13 +59,14 @@ export function FullTimeView({
       <View className="mt-2">
         <EventsTimeline
           events={events}
+          halfDurationSec={halfDurationSec}
           homeTeamName={homeTeamName}
           awayTeamName={awayTeamName}
           nameOf={nameOf}
           isMatchLive={false}
           isFullHeight={false}
           currentUserName={currentUserName}
-          currentMinute={90}
+          currentMinute={fullTimeMinutes}
         />
       </View>
     </ScrollView>
