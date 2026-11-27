@@ -325,12 +325,16 @@ export default function MatchLive() {
     };
   });
 
+  const halfMinutes = Math.max(1, Math.round(match.halfDurationSec / 60));
   const currentElapsed = match.state ? computeElapsedSec(match.state, nowMs) : 0;
-  const currentMinute = currentElapsed > 0 ? Math.max(1, Math.ceil(currentElapsed / 60)) : 1;
+  const periodMinute = currentElapsed > 0 ? Math.max(1, Math.ceil(currentElapsed / 60)) : 1;
+  const currentMinute =
+    match.state?.period === 'SECOND_HALF' ? halfMinutes + periodMinute : periodMinute;
 
   const renderTimeline = (isFullHeight = false) => (
     <EventsTimeline
       events={match.events}
+      halfDurationSec={match.halfDurationSec}
       homeTeamName={match.homeTeam.name}
       awayTeamName={match.awayTeam.name}
       nameOf={nameOf}
@@ -365,6 +369,7 @@ export default function MatchLive() {
             });
           }}
           events={match.events}
+          halfDurationSec={match.halfDurationSec}
           nameOf={nameOf}
           currentUserName={currentUserName}
           currentMinute={currentMinute}
@@ -387,6 +392,7 @@ export default function MatchLive() {
           homeLogoUrl={homeTeam.logoUrl}
           awayLogoUrl={awayTeam.logoUrl}
           events={match.events}
+          halfDurationSec={match.halfDurationSec}
           nameOf={nameOf}
           currentUserName={currentUserName}
         />

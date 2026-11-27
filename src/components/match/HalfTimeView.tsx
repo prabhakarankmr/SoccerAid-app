@@ -18,6 +18,7 @@ export interface HalfTimeViewProps {
   isSecondHalfError: boolean;
   onStartSecondHalf: () => void;
   events: MatchEvent[];
+  halfDurationSec: number;
   nameOf: (playerId: string | null) => string;
   currentUserName: string;
   currentMinute: number;
@@ -35,6 +36,7 @@ export function HalfTimeView({
   isSecondHalfError,
   onStartSecondHalf,
   events,
+  halfDurationSec,
   nameOf,
   currentUserName,
   currentMinute,
@@ -100,6 +102,7 @@ export function HalfTimeView({
       <View className="mt-2">
         <EventsTimeline
           events={events}
+          halfDurationSec={halfDurationSec}
           homeTeamName={homeTeamName}
           awayTeamName={awayTeamName}
           nameOf={nameOf}

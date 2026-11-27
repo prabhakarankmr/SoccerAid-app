@@ -14,7 +14,10 @@ import { Keyboard, ScrollView, Text, TextInput, View } from 'react-native';
 import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 
 import { MatchEvent, Side } from '../../hooks/useMatches';
+import { formatEventMinute } from '../../utils/format';
 import { ScalePressable } from '../ui/ScalePressable';
+
+export { formatEventMinute as formatMinute };
 
 export interface UserComment {
   id: string;
@@ -28,6 +31,7 @@ export interface UserComment {
 
 export interface EventsTimelineProps {
   events: MatchEvent[];
+  halfDurationSec: number;
   homeTeamName: string;
   awayTeamName: string;
   nameOf: (id: string | null) => string;
@@ -35,16 +39,6 @@ export interface EventsTimelineProps {
   isFullHeight?: boolean;
   currentUserName?: string;
   currentMinute?: number;
-}
-
-function formatMinute(e: MatchEvent): string {
-  if (e.type === 'HALF_TIME') return 'HT';
-  if (e.type === 'FULL_TIME') return 'FT';
-  if (e.type === 'ADD_TIME') return `+${Math.round((e.addedSeconds ?? 0) / 60)}'`;
-  const m = Math.max(1, Math.ceil(e.matchClockSec / 60));
-  if (e.period === 'FIRST_HALF' && m > 45) return `45+${m - 45}'`;
-  if (e.period === 'SECOND_HALF' && m > 90) return `90+${m - 90}'`;
-  return `${m}'`;
 }
 
 function eventConfig(type: MatchEvent['type'], side: Side | null) {
@@ -84,6 +78,7 @@ type FeedItem = { kind: 'event'; data: MatchEvent } | { kind: 'comment'; data: U
 
 export function EventsTimeline({
   events,
+  halfDurationSec,
   homeTeamName: _homeTeamName,
   awayTeamName: _awayTeamName,
   nameOf,
@@ -91,6 +86,7 @@ export function EventsTimeline({
   currentUserName = 'Player',
   currentMinute,
 }: EventsTimelineProps) {
+  const fullTimeMinutes = Math.max(1, Math.round(halfDurationSec / 60)) * 2;
   const [isAscending, setIsAscending] = useState(true);
   const [comments, setComments] = useState<UserComment[]>([]);
   const [inputText, setInputText] = useState('');
@@ -182,13 +178,13 @@ export function EventsTimeline({
             activeScale={0.92}
             hapticFeedback="selection"
             accessibilityRole="button"
-            accessibilityLabel={`Sort feed: currently ${isAscending ? "1' to 90'" : 'Latest First'}`}
+            accessibilityLabel={`Sort feed: currently ${isAscending ? `1' to ${fullTimeMinutes}'` : 'Latest First'}`}
             accessibilityHint="Toggles feed sort order"
           >
             <View className="flex-row items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 active:bg-white/10">
               <ArrowDownUp color="#94a3b8" size={11} />
               <Text className="text-[10px] font-bold text-slate-300">
-                {isAscending ? "1' → 90'" : 'Latest First'}
+                {isAscending ? `1' → ${fullTimeMinutes}'` : 'Latest First'}
               </Text>
             </View>
           </ScalePressable>
@@ -236,7 +232,7 @@ export function EventsTimeline({
                   <View className="flex-1 flex-row items-center gap-2 pr-2">
                     <View className="rounded bg-white/10 px-1.5 py-0.5">
                       <Text className="font-mono text-[10px] font-bold text-slate-200">
-                        {formatMinute(e)}
+                        {formatEventMinute(e, halfDurationSec)}
                       </Text>
                     </View>
                     <Icon color={cfg.iconColor} size={14} />
